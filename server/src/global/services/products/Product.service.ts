@@ -19,4 +19,20 @@ export class ProductService {
   static async createProduct(product: IProduct): Promise<IProduct> {
     return await Product.create(product);
   }
+
+  static async updateProduct(
+    id: string,
+    product: Partial<IProduct>
+  ): Promise<IProduct | null> {
+    return await Product.findByIdAndUpdate(id, product, { new: true });
+  }
+
+  static async deleteProduct(id: string): Promise<string | null | undefined> {
+    const product = await Product.findById(id);
+    if (product) {
+      await Product.findByIdAndDelete(id);
+
+      return product.image;
+    }
+  }
 }

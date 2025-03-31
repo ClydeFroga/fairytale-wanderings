@@ -5,14 +5,13 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "node",
+      "type": "bun",
       "request": "launch",
-      "name": "Run Server",
-      "runtimeExecutable": "bun",
+      "name": "Debug Server",
+      "program": "${workspaceFolder}/server/src/index.ts",
       "cwd": "${workspaceFolder}/server",
-      "runtimeArgs": ["run", "dev"],
-      "console": "integratedTerminal",
-      "stopOnEntry": true
+      "stopOnEntry": false,
+      "watchMode": false
     },
     {
       "type": "node",
