@@ -21,6 +21,24 @@
       "cwd": "${workspaceFolder}/client",
       "runtimeArgs": ["run", "dev"],
       "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "TESTS",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["test"],
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "bun",
+      "request": "launch",
+      "name": "Test current file",
+      "program": "${file}",
+      "cwd": "${workspaceFolder}",
+      "stopOnEntry": false,
+      "watchMode": false,
+      "args": ["test"]
     }
   ]
 }

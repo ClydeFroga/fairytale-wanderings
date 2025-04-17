@@ -1,5 +1,21 @@
 version: "3"
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${CLIENT_PORT:-3000}:${CLIENT_PORT:-3000}" # Клиент
+      - "${PORT:-4000}:${PORT:-4000}" # Сервер
+    env_file:
+      - .env.${NODE_ENV:-development}
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+    depends_on:
+      - mongodb
+    networks:
+      - app-network
+
   mongodb:
     image: mongo
     volumes:
@@ -10,3 +26,9 @@ services:
       MONGO_INITDB_ROOT_USERNAME: clyde_frog
       MONGO_INITDB_ROOT_PASSWORD: EngaMe031EN
     command: ["--auth"]
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

@@ -1,4 +1,4 @@
-# shop-bot-telegram
+# shop-with-bot-telegram
 
 To install dependencies:
 

@@ -7,13 +7,36 @@ import {
 import type { IProduct } from "../global/database/shema/productSchema";
 import { Upload } from "../global/utils/upload";
 import { DeleteFile } from "../global/utils/deleteFile";
+import type { FilterQuery } from "mongoose";
+import { createFilterMiddleware } from "../middleware/filterMiddleware";
 
 const app = new Hono();
 
-app.get("/", async (c) => {
-  const products = await ProductService.getProducts({ isActive: true });
+const productFilter = createFilterMiddleware<IProduct>({
+  searchFields: ["name"],
+  exactFields: ["category"],
+});
+
+app.get("/", productFilter, async (c) => {
+  const filters = c.get("filters") as FilterQuery<IProduct>;
+
+  const products = await ProductService.getProducts({
+    ...filters,
+    isActive: true,
+  });
 
   return c.json(products);
+});
+
+app.get("/:id", async (c) => {
+  const { id } = c.req.param();
+  const product = await ProductService.getProductById(id);
+
+  if (!product) {
+    return c.json({ error: "Продукт не найден" }, 404);
+  }
+
+  return c.json(product);
 });
 
 app.post("/", createProductValidator, async (c) => {

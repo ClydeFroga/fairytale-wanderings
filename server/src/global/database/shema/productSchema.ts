@@ -5,8 +5,9 @@ const productsSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   description: { type: String, required: true },
   category: { type: String, required: true },
-  image: { type: String, required: false },
+  image: { type: Array, required: false },
   isActive: { type: Boolean, default: true },
+  details: { type: Object, required: false },
 });
 
 export type IProduct = mongoose.InferSchemaType<typeof productsSchema>;
