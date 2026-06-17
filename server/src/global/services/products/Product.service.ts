@@ -15,6 +15,11 @@ export class ProductService {
     return await Product.findById(id);
   }
 
+  //Получаем продукты по id
+  static async getProductsById(ids: string[]): Promise<IProduct[]> {
+    return await Product.find({ _id: { $in: ids } });
+  }
+
   //Создаем продукт
   static async createProduct(product: IProduct): Promise<IProduct> {
     return await Product.create(product);

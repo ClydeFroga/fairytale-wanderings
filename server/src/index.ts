@@ -5,6 +5,8 @@ import { cors } from "hono/cors";
 import products from "./routes/products";
 import { serveStatic } from "hono/bun";
 import path from "path";
+import index from "./routes/index";
+
 const app = new Hono();
 
 // Применяем CORS ко всем маршрутам
@@ -47,7 +49,7 @@ async function startBot() {
 //   console.error("Необработанная ошибка при запуске:", error);
 // });
 
-app.route("/products", products);
+app.route("/", index);
 
 app.use(
   "/images/*",

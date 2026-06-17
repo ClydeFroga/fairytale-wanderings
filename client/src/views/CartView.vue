@@ -7,6 +7,8 @@ import MakeOrderButton from '@/components/global/MakeOrderButton.vue'
 
 const deliveryCost = ref(20)
 
+// console.log(window.Telegram.WebApp.initDataUnsafe)
+
 const cartStore = useCartStore()
 </script>
 
@@ -91,7 +93,7 @@ const cartStore = useCartStore()
         <MakeOrderButton
           class="truncate"
           text="Оформить заказ (без оплаты)"
-          :product="cartStore.products"
+          :products="cartStore.products"
         />
       </div>
     </div>

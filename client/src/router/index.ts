@@ -1,25 +1,34 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import StoreView from '../views/StoreView.vue'
-import HomeView from '../views/HomeView.vue'
-import ProductPage from '../views/ProductPage.vue'
+import CRMView from '../views/CRMView.vue'
+import ProductPageView from '../views/ProductPageView.vue'
 import CartView from '../views/CartView.vue'
+import AdminLayout from '../layouts/AdminLayout.vue'
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
-      path: '/',
-      name: 'home',
-      component: HomeView,
+      path: '/admin',
+      name: 'admin',
+      component: AdminLayout,
+      children: [
+        {
+          path: '',
+          name: 'crm',
+          component: CRMView,
+        },
+      ],
     },
     {
-      path: '/store',
+      path: '/',
       name: 'store',
       component: StoreView,
     },
     {
       path: '/product/:id',
       name: 'product',
-      component: ProductPage,
+      component: ProductPageView,
     },
     {
       path: '/cart',

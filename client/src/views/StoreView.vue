@@ -9,6 +9,11 @@ import { ROOT_URL } from '@/config'
 
 //Грузим с сервера
 const products: Ref<IProduct[]> = ref([])
+const categories: Ref<{ param: string; text: string }[]> = ref([
+  { param: 'new', text: 'Новое' },
+  { param: 'popular', text: 'Популярное' },
+  { param: 'best', text: 'Лучшее' },
+])
 
 onMounted(() => {
   fetch(`${ROOT_URL}/products`)
@@ -24,7 +29,7 @@ onMounted(() => {
     <div>
       <Header :backButton="false" :BackLink="'/'" />
       <Search />
-      <Categories />
+      <Categories :categories="categories" />
 
       <div class="grid grid-cols-[repeat(auto-fit,minmax(158px,1fr))] gap-3 p-4">
         <ProductMenu v-for="product in products" :key="product._id" :product="product" />

@@ -10,7 +10,7 @@ defineProps({
     required: true,
   },
   products: {
-    type: Array as PropType<IProduct[]>,
+    type: Map as PropType<Map<IProduct, number>>,
     required: true,
   },
 })

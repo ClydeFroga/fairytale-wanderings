@@ -11,7 +11,7 @@
       "program": "${workspaceFolder}/server/src/index.ts",
       "cwd": "${workspaceFolder}/server",
       "stopOnEntry": false,
-      "watchMode": false
+      "watchMode": true
     },
     {
       "type": "node",

@@ -26,4 +26,5 @@ const orderSchema = new mongoose.Schema({
 });
 
 export type IOrder = mongoose.InferSchemaType<typeof orderSchema>;
+export type IOrderItem = mongoose.InferSchemaType<typeof orderItemSchema>;
 export const Order = mongoose.model("Order", orderSchema);
