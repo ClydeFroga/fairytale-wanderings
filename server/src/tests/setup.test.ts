@@ -5,12 +5,16 @@ import { mock } from "bun:test";
 // Это предотвратит попытки подключения к MongoDB
 
 // Мокируем mongoose
+const SchemaMock: any = class Schema {
+  constructor() {}
+};
+SchemaMock.Types = { ObjectId: class ObjectId {} };
+
 mock.module("mongoose", () => {
   return {
     connect: () => Promise.resolve({}),
-    Schema: class Schema {
-      constructor() {}
-    },
+    Schema: SchemaMock,
+    Types: { ObjectId: class ObjectId {} },
     model: () => {
       return {
         find: () => Promise.resolve([]),
