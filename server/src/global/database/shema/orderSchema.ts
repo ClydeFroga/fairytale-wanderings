@@ -1,30 +1,51 @@
-import * as mongoose from "mongoose";
+import {
+  pgTable,
+  uuid,
+  text,
+  integer,
+  timestamp,
+  pgEnum,
+} from "drizzle-orm/pg-core";
+import { users } from "./userSchema";
+import { products } from "./productSchema";
 
-const orderItemSchema = new mongoose.Schema({
-  productId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Product",
-    required: true,
-  },
-  quantity: { type: Number, required: true },
-  price: { type: Number, required: true }, // Фиксируем цену на момент заказа
+export const orderStatus = pgEnum("order_status", [
+  "pending",
+  "processing",
+  "shipped",
+  "delivered",
+  "cancelled",
+]);
+
+export const orderChannel = pgEnum("order_channel", ["web", "telegram"]);
+
+export const orders = pgTable("orders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id), // null для веб-заказов (гостевой checkout)
+  customerName: text("customer_name"),
+  contact: text("contact"),
+  deliveryMethod: text("delivery_method"),
+  deliveryAddress: text("delivery_address"),
+  comment: text("comment"),
+  totalPrice: integer("total_price").notNull().default(0),
+  status: orderStatus("status").notNull().default("pending"),
+  paymentMethod: text("payment_method"),
+  channel: orderChannel("channel").notNull().default("web"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-const orderSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  items: [orderItemSchema],
-  totalPrice: { type: Number, required: true },
-  status: {
-    type: String,
-    enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
-    default: "pending",
-  },
-  paymentMethod: { type: String },
-  deliveryAddress: { type: String },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
+export const orderItems = pgTable("order_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orderId: uuid("order_id")
+    .notNull()
+    .references(() => orders.id, { onDelete: "cascade" }),
+  productId: uuid("product_id").references(() => products._id),
+  quantity: integer("quantity").notNull(),
+  price: integer("price").notNull(), // фиксируем цену на момент заказа
 });
 
-export type IOrder = mongoose.InferSchemaType<typeof orderSchema>;
-export type IOrderItem = mongoose.InferSchemaType<typeof orderItemSchema>;
-export const Order = mongoose.model("Order", orderSchema);
+export type IOrder = typeof orders.$inferSelect;
+export type INewOrder = typeof orders.$inferInsert;
+export type IOrderItem = typeof orderItems.$inferSelect;
+export type INewOrderItem = typeof orderItems.$inferInsert;

@@ -1,29 +1,17 @@
 import { Hono } from "hono";
-import { ProductService } from "../global/services/products/Product.service";
-import {
-  createProductValidator,
-  updateProductValidator,
-} from "../validators/productsValidator";
-import type { IProduct } from "../global/database/shema/productSchema";
-import { Upload } from "../global/utils/upload";
-import { DeleteFile } from "../global/utils/deleteFile";
-import type { FilterQuery } from "mongoose";
-import { createFilterMiddleware } from "../middleware/filterMiddleware";
+import { ProductService } from "../../global/services/products/Product.service";
+import { createProductValidator, updateProductValidator } from "./validator";
+import { mapFormToProduct } from "./helpers";
+import type { INewProduct } from "../../global/database/shema";
+import { Upload } from "../../global/utils/upload";
+import { DeleteFile } from "../../global/utils/deleteFile";
 
 const app = new Hono();
 
-const productFilter = createFilterMiddleware<IProduct>({
-  searchFields: ["name"],
-  exactFields: ["category"],
-});
+app.get("/", async (c) => {
+  const { name, category } = c.req.query();
 
-app.get("/", productFilter, async (c) => {
-  const filters = c.get("filters") as FilterQuery<IProduct>;
-
-  const products = await ProductService.getProducts({
-    ...filters,
-    isActive: true,
-  });
+  const products = await ProductService.getProducts({ name, category });
 
   return c.json(products);
 });
@@ -42,20 +30,15 @@ app.get("/:id", async (c) => {
 app.post("/", createProductValidator, async (c) => {
   const body = await c.req.parseBody();
 
-  let imagePath: string;
+  let imagePath: string | null;
 
   try {
-    imagePath = (await Upload.processFormImage(body, "")) || "";
+    imagePath = await Upload.processFormImage(body, null);
   } catch (error) {
     return c.json({ error: (error as Error).message }, 500);
   }
 
-  const productData = {
-    ...Object.fromEntries(
-      Object.entries(body).filter(([key]) => key !== "image")
-    ),
-    ...(imagePath !== "" && { image: imagePath }),
-  } as IProduct;
+  const productData = mapFormToProduct(body, imagePath) as INewProduct;
 
   try {
     const newProduct = await ProductService.createProduct(productData);
@@ -78,12 +61,7 @@ app.patch("/:id", updateProductValidator, async (c) => {
     return c.json({ error: (error as Error).message }, 500);
   }
 
-  const productData: Partial<IProduct> = {
-    ...Object.fromEntries(
-      Object.entries(body).filter(([key]) => key !== "image")
-    ),
-    ...(imagePath !== null && { image: imagePath }),
-  };
+  const productData = mapFormToProduct(body, imagePath);
 
   const updatedProduct = await ProductService.updateProduct(id, productData);
   return c.json(updatedProduct, 200);
@@ -91,10 +69,12 @@ app.patch("/:id", updateProductValidator, async (c) => {
 
 app.delete("/:id", async (c) => {
   const { id } = c.req.param();
-  const image_path = await ProductService.deleteProduct(id);
+  const images = await ProductService.deleteProduct(id);
 
-  if (image_path) {
-    await DeleteFile.deleteFile(image_path);
+  if (images) {
+    for (const image of images) {
+      await DeleteFile.deleteFile(image);
+    }
   }
 
   return c.json({ message: "Продукт успешно удален" }, 200);

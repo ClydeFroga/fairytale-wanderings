@@ -2,7 +2,7 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 
 export const createOrderValidator = zValidator(
-  "form",
+  "json",
   z.object({
     items: z.array(
       z.object({
@@ -10,6 +10,6 @@ export const createOrderValidator = zValidator(
         quantity: z.number(),
       })
     ),
-    deliveryAddress: z.string(),
+    deliveryAddress: z.string().optional(),
   })
 );

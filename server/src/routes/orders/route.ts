@@ -1,10 +1,11 @@
 import { Hono } from "hono";
-import { createOrderValidator } from "../validators/orderValidator";
-import { OrderService } from "../global/services/orders/Order.service";
+import { createOrderValidator } from "./validator";
+import { OrderService } from "../../global/services/orders/Order.service";
+
 const app = new Hono();
 
 app.post("/create", createOrderValidator, async (c) => {
-  const body = await c.req.parseBody();
+  const body = c.req.valid("json");
 
   const order = await OrderService.createOrder(body);
 

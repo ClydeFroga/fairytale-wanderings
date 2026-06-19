@@ -1,10 +1,17 @@
-import mongoose from "mongoose";
-import "./shema";
+import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+import * as schema from "./shema";
 
 class DatabaseSingleton {
   private static instance: DatabaseSingleton;
 
-  private constructor() {}
+  private readonly pool: Pool;
+  public readonly db: NodePgDatabase<typeof schema>;
+
+  private constructor() {
+    this.pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    this.db = drizzle(this.pool, { schema });
+  }
 
   public static getInstance(): DatabaseSingleton {
     if (!DatabaseSingleton.instance) {
@@ -15,27 +22,21 @@ class DatabaseSingleton {
 
   public async connect() {
     try {
-      console.log("Подключение к MongoDB...");
-      console.log("URI:", process.env.MONGO_URI);
-      console.log("Пользователь:", process.env.MONGO_USERNAME);
-
-      await mongoose.connect(process.env.MONGO_URI || "", {
-        user: process.env.MONGO_USERNAME,
-        pass: process.env.MONGO_PASSWORD,
-        dbName: "fairytail",
-      });
-
-      console.log("Успешное подключение к MongoDB!");
-      console.log("Зарегистрированные модели:", Object.keys(mongoose.models));
+      console.log("Подключение к PostgreSQL...");
+      await this.pool.query("SELECT 1");
+      console.log("Успешное подключение к PostgreSQL!");
     } catch (error) {
-      console.error("Ошибка подключения к MongoDB:", error);
+      console.error("Ошибка подключения к PostgreSQL:", error);
       throw error;
     }
   }
 
   public async disconnect() {
-    await mongoose.disconnect();
+    await this.pool.end();
   }
 }
 
 export { DatabaseSingleton };
+
+// Готовый drizzle-инстанс для сервисов.
+export const db = DatabaseSingleton.getInstance().db;

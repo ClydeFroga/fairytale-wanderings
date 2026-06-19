@@ -5,11 +5,16 @@
   "private": true,
   "scripts": {
     "dev": "bun run src/index.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/pg": "^8.20.0",
     "@types/supertest": "^7.2.0",
+    "drizzle-kit": "^0.31.10",
     "supertest": "^7.2.2"
   },
   "peerDependencies": {
@@ -17,8 +22,9 @@
   },
   "dependencies": {
     "@hono/zod-validator": "^0.8.0",
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.12.25",
-    "mongoose": "^8.24.0",
+    "pg": "^8.21.0",
     "sharp": "^0.35.1",
     "telegraf": "^4.16.3",
     "zod": "^4.4.3"

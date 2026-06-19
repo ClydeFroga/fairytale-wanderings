@@ -1,6 +1,6 @@
 import { Context, Telegraf } from "telegraf";
-import { Product } from "../../global/database/shema";
 
+// Заготовка под выбор товара в боте (реализация — Этап 3).
 class ChooseProduct {
   constructor(private readonly bot: Telegraf) {
     this.bot = bot;
@@ -10,3 +10,5 @@ class ChooseProduct {
 
   async listProducts(ctx: Context) {}
 }
+
+export { ChooseProduct };

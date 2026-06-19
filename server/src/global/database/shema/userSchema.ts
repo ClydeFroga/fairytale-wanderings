@@ -1,14 +1,18 @@
-import * as mongoose from "mongoose";
+import { pgTable, uuid, text, boolean, bigint, timestamp } from "drizzle-orm/pg-core";
 
-const userSchema = new mongoose.Schema({
-  telegramId: { type: Number, required: true, unique: true },
-  firstName: { type: String, required: true },
-  lastName: { type: String },
-  username: { type: String },
-  phone: { type: String },
-  registeredAt: { type: Date, default: Date.now },
-  isAdmin: { type: Boolean, default: false },
+// Пользователи нужны только для Telegram-бота (идентификация — сам Telegram).
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  telegramId: bigint("telegram_id", { mode: "number" }).unique(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name"),
+  username: text("username"),
+  phone: text("phone"),
+  isAdmin: boolean("is_admin").notNull().default(false),
+  registeredAt: timestamp("registered_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
-export type IUser = mongoose.InferSchemaType<typeof userSchema>;
-export const User = mongoose.model("User", userSchema);
+export type IUser = typeof users.$inferSelect;
+export type INewUser = typeof users.$inferInsert;

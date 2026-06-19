@@ -1,27 +1,33 @@
-import { User } from "../../database/shema";
-import type { IUser } from "./interfaces/IUser";
+import { eq } from "drizzle-orm";
+import { db } from "../../database/DatabaseSingleton";
+import { users } from "../../database/shema";
+import type { IUser, INewUser } from "../../database/shema";
 
 export class UserService {
   // Получить пользователя по Telegram ID
   static async getUserByTelegramId(
     telegramId: number | undefined
   ): Promise<IUser | null> {
-    if (!telegramId) {
-      return null;
-    }
+    if (!telegramId) return null;
 
-    return await User.findOne({ telegramId });
+    const [row] = await db
+      .select()
+      .from(users)
+      .where(eq(users.telegramId, telegramId))
+      .limit(1);
+
+    return row ?? null;
   }
 
   // Создать нового пользователя
   static async createUser(
-    userData: Pick<IUser, "telegramId" | "firstName" | "username">
+    userData: Pick<INewUser, "telegramId" | "firstName" | "username">
   ) {
-    await User.create(userData);
+    await db.insert(users).values(userData);
   }
 
   // Обновить номер телефона
   static async updateUserPhone(telegramId: number, phone: string) {
-    await User.findOneAndUpdate({ telegramId }, { phone });
+    await db.update(users).set({ phone }).where(eq(users.telegramId, telegramId));
   }
 }

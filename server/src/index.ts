@@ -2,9 +2,7 @@ import { DatabaseSingleton } from "./global/database/DatabaseSingleton";
 import { Bot } from "./bot/main";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import products from "./routes/products";
 import { serveStatic } from "hono/bun";
-import path from "path";
 import index from "./routes/index";
 
 const app = new Hono();
