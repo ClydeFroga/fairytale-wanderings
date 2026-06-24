@@ -4,6 +4,9 @@ import type { IProduct } from '@/components/product/IProduct'
 
 export const useCartStore = defineStore('cart', () => {
   const products = ref<Map<IProduct, number>>(new Map())
+  const address = ref('')
+  const name = ref('')
+  const phone = ref('')
 
   const totalQuantity = computed(() => {
     return Array.from(products.value.values()).reduce((acc, quantity) => {
@@ -28,5 +31,5 @@ export const useCartStore = defineStore('cart', () => {
     }
   }
 
-  return { products, addProduct, removeProduct, totalQuantity, totalPrice }
+  return { products, addProduct, removeProduct, totalQuantity, totalPrice, address, name, phone }
 })

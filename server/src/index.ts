@@ -4,17 +4,18 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
 import index from "./routes/index";
+import { errorHandler } from "./middleware/errorHandler";
 
 const app = new Hono();
+
+// Единый обработчик ошибок: прикладные ошибки → их статус/текст, остальное → 500.
+app.onError(errorHandler);
 
 // Применяем CORS ко всем маршрутам
 app.use(
   "*",
   cors({
-    origin: [
-      "http://localhost:5173",
-      "https://mbbr6p2z-5173.euw.devtunnels.ms",
-    ], // Разрешаем доступ только с вашего фронтенда
+    origin: ["http://localhost:5173", "https://mbbr6p2z-5173.euw.devtunnels.ms"],
     allowHeaders: ["Content-Type", "Authorization"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     exposeHeaders: ["Content-Length", "X-Kuma-Revision"],
@@ -39,7 +40,7 @@ async function startBot() {
     console.log("Приложение полностью запущено и готово к работе!");
   } catch (error) {
     console.error("Критическая ошибка при запуске приложения:", error);
-    process.exit(1); // Завершаем процесс с ошибкой
+    process.exit(1);
   }
 }
 

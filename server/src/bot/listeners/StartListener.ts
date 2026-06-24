@@ -1,7 +1,7 @@
 import { Context, Telegraf } from "telegraf";
 import { startTexts } from "../../texts/startTexts";
 import type { Listener } from "./Listener";
-import { UserService } from "../../global/services/user/User.service";
+import { UserMethods } from "../../global/database/methods/user";
 
 export class StartListener implements Listener {
   constructor(private readonly bot: Telegraf) {
@@ -15,7 +15,7 @@ export class StartListener implements Listener {
   private async start(ctx: Context) {
     if (!ctx.from) return;
 
-    const user = await UserService.getUserByTelegramId(ctx.from.id);
+    const user = await UserMethods.getByTelegramId(ctx.from.id);
 
     if (!user) {
       await this.handleNewUser(ctx);
@@ -35,7 +35,7 @@ export class StartListener implements Listener {
 
     ctx.reply(startTexts.hello);
 
-    await UserService.createUser({
+    await UserMethods.create({
       telegramId: ctx.from.id,
       firstName: ctx.from.first_name,
       username: ctx.from.username,

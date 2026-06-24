@@ -2,11 +2,13 @@ import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./shema";
 
+export type DB = NodePgDatabase<typeof schema>;
+
 class DatabaseSingleton {
   private static instance: DatabaseSingleton;
 
   private readonly pool: Pool;
-  public readonly db: NodePgDatabase<typeof schema>;
+  public readonly db: DB;
 
   private constructor() {
     this.pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -38,5 +40,5 @@ class DatabaseSingleton {
 
 export { DatabaseSingleton };
 
-// Готовый drizzle-инстанс для сервисов.
+// Готовый drizzle-инстанс для методов.
 export const db = DatabaseSingleton.getInstance().db;

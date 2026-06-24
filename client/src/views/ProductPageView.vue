@@ -42,7 +42,7 @@ onMounted(() => {
     <div
       class="relative flex size-full min-h-screen flex-col justify-between lg:justify-start overflow-x-hidden"
     >
-      <Header :BackLink="'/store'" />
+      <Header :BackLink="'/'" />
       <div>
         <div class="grid grid-cols-[repeat(auto-fit,minmax(158px,1fr))] gap-3 p-4">
           <div class="flex flex-col gap-3 pb-3">
@@ -52,7 +52,7 @@ onMounted(() => {
               <p class="text-base font-medium leading-normal">
                 {{ product.name }}
               </p>
-              <p class="text-[var(--vt-c-text-light-2)] text-sm font-normal leading-normal">
+              <p class="text-(--vt-c-text-light-2) text-sm font-normal leading-normal">
                 {{ product.price }} ₽
               </p>
             </div>
@@ -72,9 +72,9 @@ onMounted(() => {
         >
           <div
             v-for="[key, value] in Object.entries(product.details)"
-            class="col-span-2 grid grid-cols-subgrid border-t border-t-[var(--vt-c-divider-light-1)] py-5 p-4"
+            class="col-span-2 grid grid-cols-subgrid border-t border-t-(--vt-c-divider-light-1) py-5 p-4"
           >
-            <p class="text-[var(--vt-c-text-light-2)] text-sm font-normal leading-normal">
+            <p class="text-(--vt-c-text-light-2) text-sm font-normal leading-normal">
               {{ key }}
             </p>
             <p class="text-sm font-normal leading-normal">{{ value }}</p>

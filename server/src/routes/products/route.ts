@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { ProductService } from "../../global/services/products/Product.service";
+import { ProductMethods } from "../../global/database/methods/product";
 import { createProductValidator, updateProductValidator } from "./validator";
 import { mapFormToProduct } from "./helpers";
 import type { INewProduct } from "../../global/database/shema";
@@ -11,14 +11,14 @@ const app = new Hono();
 app.get("/", async (c) => {
   const { name, category } = c.req.query();
 
-  const products = await ProductService.getProducts({ name, category });
+  const products = await ProductMethods.getActive({ name, category });
 
   return c.json(products);
 });
 
 app.get("/:id", async (c) => {
   const { id } = c.req.param();
-  const product = await ProductService.getProductById(id);
+  const product = await ProductMethods.getById(id);
 
   if (!product) {
     return c.json({ error: "Продукт не найден" }, 404);
@@ -41,7 +41,7 @@ app.post("/", createProductValidator, async (c) => {
   const productData = mapFormToProduct(body, imagePath) as INewProduct;
 
   try {
-    const newProduct = await ProductService.createProduct(productData);
+    const newProduct = await ProductMethods.create(productData);
     return c.json(newProduct, 201);
   } catch (error) {
     console.error("Ошибка при создании продукта:", error);
@@ -63,13 +63,13 @@ app.patch("/:id", updateProductValidator, async (c) => {
 
   const productData = mapFormToProduct(body, imagePath);
 
-  const updatedProduct = await ProductService.updateProduct(id, productData);
+  const updatedProduct = await ProductMethods.update(id, productData);
   return c.json(updatedProduct, 200);
 });
 
 app.delete("/:id", async (c) => {
   const { id } = c.req.param();
-  const images = await ProductService.deleteProduct(id);
+  const images = await ProductMethods.remove(id);
 
   if (images) {
     for (const image of images) {

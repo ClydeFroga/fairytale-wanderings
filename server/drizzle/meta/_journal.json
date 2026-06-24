@@ -8,6 +8,13 @@
       "when": 1781766438574,
       "tag": "0000_slow_mindworm",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782296446758,
+      "tag": "0001_majestic_shiva",
+      "breakpoints": true
     }
   ]
 }

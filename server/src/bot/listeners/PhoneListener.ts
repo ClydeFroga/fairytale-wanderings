@@ -1,6 +1,6 @@
 import { Context, Telegraf } from "telegraf";
 import type { Listener } from "./Listener";
-import { UserService } from "../../global/services/user/User.service";
+import { UserMethods } from "../../global/database/methods/user";
 import { startTexts } from "../../texts/startTexts";
 import { formatPhoneNumber } from "../../global/utils/formatPhoneNumber";
 
@@ -27,7 +27,7 @@ export class PhoneListener implements Listener {
     const formattedPhone = formatPhoneNumber(phone);
 
     //Сохраняем номер телефона в базе данных
-    await UserService.updateUserPhone(ctx.from?.id, formattedPhone);
+    await UserMethods.updatePhone(ctx.from?.id, formattedPhone);
 
     ctx.reply(startTexts.phoneRequestSuccess);
   }

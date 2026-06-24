@@ -16,7 +16,7 @@ const props = defineProps({
     :product="props.product"
   >
     <div
-      class="w-full bg-center bg-no-repeat aspect-[3/4] bg-cover rounded-xl hover:scale-105 transition-all duration-300"
+      class="w-full bg-center bg-no-repeat aspect-3/4 bg-cover rounded-xl hover:scale-105 transition-all duration-300"
       :style="{
         backgroundImage: `url(${props.product.image[0]})`,
       }"

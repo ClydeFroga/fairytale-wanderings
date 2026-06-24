@@ -1,49 +1,21 @@
-import {
-  describe,
-  it,
-  expect,
-  beforeEach,
-  mock,
-} from "bun:test";
+import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { Hono } from "hono";
 
-interface IProductService {
-  getProducts: (filters?: any) => Promise<any[]>;
-  getProductById: (id: string) => Promise<any | null>;
-  createProduct: (product: any) => Promise<any>;
-  updateProduct: (id: string, product: any) => Promise<any>;
-  deleteProduct: (id: string) => Promise<string[] | null | undefined>;
-}
-
-interface IUpload {
-  processFormImage: (body: any, defaultValue: any) => Promise<any>;
-}
-
-interface IDeleteFile {
-  deleteFile: (path: string) => Promise<boolean>;
-}
-
-declare global {
-  var ProductService: IProductService;
-  var Upload: IUpload;
-  var DeleteFile: IDeleteFile;
-}
-
-const mockGetProducts = mock(() => Promise.resolve([] as any[]));
-const mockGetProductById = mock(() => Promise.resolve(null));
-const mockCreateProduct = mock(() => Promise.resolve({}));
-const mockUpdateProduct = mock(() => Promise.resolve(null));
-const mockDeleteProduct = mock(() => Promise.resolve(null));
+const mockGetActive = mock(() => Promise.resolve([] as any[]));
+const mockGetById = mock(() => Promise.resolve(null));
+const mockCreate = mock(() => Promise.resolve({}));
+const mockUpdate = mock(() => Promise.resolve(null));
+const mockRemove = mock(() => Promise.resolve(null));
 const mockProcessFormImage = mock(() => Promise.resolve(""));
 const mockDeleteFile = mock(() => Promise.resolve(true));
 
-mock.module("../global/services/products/Product.service", () => ({
-  ProductService: {
-    getProducts: mockGetProducts,
-    getProductById: mockGetProductById,
-    createProduct: mockCreateProduct,
-    updateProduct: mockUpdateProduct,
-    deleteProduct: mockDeleteProduct,
+mock.module("../global/database/methods/product", () => ({
+  ProductMethods: {
+    getActive: mockGetActive,
+    getById: mockGetById,
+    create: mockCreate,
+    update: mockUpdate,
+    remove: mockRemove,
   },
 }));
 
@@ -67,25 +39,23 @@ const mockProduct = {
   category: "Тестовая категория",
   image: ["/uploads/test-image.jpg"],
   isActive: true,
+  stock: 7,
 };
 
 describe("Products API", () => {
   beforeEach(() => {
-    mockGetProducts.mockClear();
-    mockGetProductById.mockClear();
-    mockCreateProduct.mockClear();
-    mockUpdateProduct.mockClear();
-    mockDeleteProduct.mockClear();
-    mockProcessFormImage.mockClear();
-    mockDeleteFile.mockClear();
+    mockGetActive.mockClear();
+    mockGetById.mockClear();
+    mockCreate.mockClear();
+    mockUpdate.mockClear();
+    mockRemove.mockClear();
   });
 
   describe("GET /products", () => {
     it("должен возвращать список продуктов", async () => {
-      mockGetProducts.mockReturnValueOnce(Promise.resolve([mockProduct]));
+      mockGetActive.mockReturnValueOnce(Promise.resolve([mockProduct]));
 
-      const req = new Request("http://localhost/products");
-      const res = await app.fetch(req);
+      const res = await app.fetch(new Request("http://localhost/products"));
       const data = await res.json();
 
       expect(res.status).toBe(200);
@@ -93,10 +63,9 @@ describe("Products API", () => {
     });
 
     it("должен корректно обрабатывать пустой список продуктов", async () => {
-      mockGetProducts.mockReturnValueOnce(Promise.resolve([]));
+      mockGetActive.mockReturnValueOnce(Promise.resolve([]));
 
-      const req = new Request("http://localhost/products");
-      const res = await app.fetch(req);
+      const res = await app.fetch(new Request("http://localhost/products"));
       const data = await res.json();
 
       expect(res.status).toBe(200);

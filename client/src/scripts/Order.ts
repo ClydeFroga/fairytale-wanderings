@@ -1,12 +1,17 @@
 import type { IProduct } from '@/components/product/IProduct'
 
 export class Order {
-  constructor(
-    public products: Map<IProduct, number>,
-    public address: string,
-  ) {}
+  products: Map<IProduct, number>
+  address: string
+  name: string
+  phone: string
 
-  send() {
-    console.log('send order')
+  constructor(products: Map<IProduct, number>, address: string, name: string, phone: string) {
+    this.products = products
+    this.address = address
+    this.name = name
+    this.phone = phone
   }
+
+  send() {}
 }

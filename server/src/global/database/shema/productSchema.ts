@@ -11,6 +11,7 @@ export const products = pgTable("products", {
   image: jsonb("image").$type<string[]>().notNull().default([]),
   isActive: boolean("is_active").notNull().default(true),
   details: jsonb("details").$type<Record<string, string>>().notNull().default({}),
+  stock: integer("stock").notNull().default(0), // остаток на складе
 });
 
 export type IProduct = typeof products.$inferSelect;
