@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { createOrderValidator } from "./validator";
 import { ProductMethods } from "../../global/database/methods/product";
 import { OrderMethods } from "../../global/database/methods/order";
+import { OrderItemMethods } from "../../global/database/methods/orderItem";
+import { runInTransaction } from "../../global/database/transaction";
 import {
   InsufficientStockError,
   ProductNotFoundError,
@@ -32,24 +34,33 @@ app.post("/create", createOrderValidator, async (c) => {
   }));
   const totalPrice = items.reduce((acc, it) => acc + it.quantity * it.price, 0);
 
-  // Атомарное списание по каждой позиции (условие stock >= qty отсекает гонки)
-  for (const item of items) {
-    const ok = await ProductMethods.decrementStock(item.productId, item.quantity);
-    if (!ok) {
-      const product = byId.get(item.productId);
-      throw new InsufficientStockError(item.productId, product?.stock ?? 0, item.quantity);
+  const order = await runInTransaction(async (tx) => {
+    for (const item of items) {
+      const ok = await ProductMethods.decrementStock(item.productId, item.quantity, tx);
+      if (!ok) {
+        const product = byId.get(item.productId);
+        throw new InsufficientStockError(item.productId, product?.stock ?? 0, item.quantity);
+      }
     }
-  }
 
-  const order = await OrderMethods.create({
-    customerName: input.customerName,
-    contact: input.contact,
-    deliveryAddress: input.deliveryAddress,
-    totalPrice,
-    channel: "web",
+    const created = await OrderMethods.create(
+      {
+        customerName: input.customerName,
+        contact: input.contact,
+        deliveryAddress: input.deliveryAddress,
+        totalPrice,
+        channel: "web",
+      },
+      tx,
+    );
+
+    await OrderItemMethods.addMany(
+      items.map((it) => ({ ...it, orderId: created.id })),
+      tx,
+    );
+
+    return created;
   });
-
-  await OrderMethods.addItems(items.map((it) => ({ ...it, orderId: order.id })));
 
   return c.json(order, 201);
 });

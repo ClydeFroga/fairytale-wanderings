@@ -9,7 +9,7 @@ const mockRemove = mock(() => Promise.resolve(null));
 const mockProcessFormImage = mock(() => Promise.resolve(""));
 const mockDeleteFile = mock(() => Promise.resolve(true));
 
-mock.module("../global/database/methods/product", () => ({
+mock.module("../../global/database/methods/product", () => ({
   ProductMethods: {
     getActive: mockGetActive,
     getById: mockGetById,
@@ -19,15 +19,15 @@ mock.module("../global/database/methods/product", () => ({
   },
 }));
 
-mock.module("../global/utils/upload", () => ({
+mock.module("../../global/utils/upload", () => ({
   Upload: { processFormImage: mockProcessFormImage },
 }));
 
-mock.module("../global/utils/deleteFile", () => ({
+mock.module("../../global/utils/deleteFile", () => ({
   DeleteFile: { deleteFile: mockDeleteFile },
 }));
 
-import productsApp from "../routes/products/route";
+import productsApp from "./route";
 
 const app = new Hono().route("/products", productsApp);
 

@@ -1,12 +1,8 @@
 import { and, eq, gte, ilike, inArray, sql, type SQL } from "drizzle-orm";
-import { db } from "../DatabaseSingleton";
+import { db, type DB } from "../DatabaseSingleton";
 import { products } from "../shema";
 import type { IProduct, INewProduct } from "../shema";
-
-export interface ProductFilters {
-  name?: string;
-  category?: string;
-}
+import type { ProductFilters } from "../types";
 
 export class ProductMethods {
   static getActive(filters?: ProductFilters): Promise<IProduct[]> {
@@ -42,8 +38,8 @@ export class ProductMethods {
   }
 
   // Атомарное списание: true, если остатка хватило (условие stock >= qty отсекает гонки).
-  static async decrementStock(id: string, qty: number): Promise<boolean> {
-    const res = await db
+  static async decrementStock(id: string, qty: number, conn: DB = db): Promise<boolean> {
+    const res = await conn
       .update(products)
       .set({ stock: sql`${products.stock} - ${qty}` })
       .where(and(eq(products._id, id), gte(products.stock, qty)))

@@ -40,31 +40,34 @@ src/
       route.ts                  # хендлеры + бизнес-логика
       validator.ts              # zod-валидаторы
       helpers.ts                # вспомогательные функции роута (напр. mapFormToProduct)
+      products.test.ts          # тесты роута (bun:test)
     orders/
       route.ts
       validator.ts
   global/
     database/
       DatabaseSingleton.ts      # пул + drizzle, экспортирует готовый `db`
+      transaction.ts            # runInTransaction(fn) — обёртка над db.transaction
+      types/                    # DTO запросов к БД (фильтры, сортировка и т.п.)
+        product.ts  index.ts
       methods/                  # ТОЛЬКО обращения к БД (репозиторий)
-        product.ts  order.ts  user.ts
+        product.ts  order.ts  orderItem.ts  user.ts
       shema/                    # Drizzle-схема, по файлу на сущность (+ index)
         productSchema.ts userSchema.ts orderSchema.ts index.ts
       seed.ts                   # наполнение тестовыми данными
     errors/                     # классы ошибок (AppError + наследники)
     utils/                      # upload, deleteFile, formatPhoneNumber
   bot/                          # Telegram-бот (telegraf)
-  tests/                        # bun:test
 ```
 
 ## Архитектурные правила (важно, соблюдать)
 
 1. **Бизнес-логика — в роутах.** Проверки, расчёты, оркестрация, выбрасывание ошибок — в `routes/<name>/route.ts` (или в `helpers.ts` той же папки, если это чистый помощник запроса). Не выносить логику в методы БД.
-2. **`database/methods/` — только обращения к БД.** Методы импортируют `db` напрямую из `DatabaseSingleton` (НЕ принимают его параметром), без бизнес-решений. Один файл на сущность, статические методы.
+2. **`database/methods/` — только обращения к БД.** Методы импортируют `db` из `DatabaseSingleton` и по умолчанию работают через него. Опциональный `conn: DB` (последний аргумент) — только для вызова внутри `runInTransaction`. Один файл на сущность, статические методы; методы разных сущностей друг друга не вызывают.
 3. **Ошибки — централизованно в `global/errors/`.** Базовый класс `AppError(message, status)`; наследники задают `status` (`ProductNotFoundError` → 404, `InsufficientStockError` → 409). В роутах их просто `throw`, без `try/catch`.
 4. **Единый обработчик ошибок** — `middleware/errorHandler.ts`, подключён `app.onError(errorHandler)`. `AppError` → `c.text(message, status)`, остальное логируется и отдаёт 500. Новые прикладные ошибки наследуй от `AppError` — middleware трогать не нужно.
-5. **Схема — по файлам на сущность** в `shema/` (имя папки — исторический типо `shema`, не `schema`). Перечисления и связанные таблицы (orders + orderItems) держим вместе.
-6. **Цена и остаток — источник истины БД.** Цену позиции фиксируем из БД на момент заказа (не из запроса клиента). Остаток списываем атомарно условием `stock >= qty` (`ProductMethods.decrementStock`). Единой транзакции на весь заказ сейчас нет (методы param-free) — учитывать при изменениях; если нужна строгая атомарность, заворачивать в один метод-персист с собственной транзакцией.
+5. **Схема — по файлам на сущность** в `shema/` (имя папки — исторический типо `shema`, не `schema`). Перечисления и связанные таблицы (orders + orderItems) держим вместе. Типы строк таблиц (`IProduct`, `INewOrder`) — рядом со схемой; вспомогательные типы запросов (фильтры, пагинация) — в `database/types/`.
+6. **Цена и остаток — источник истины БД.** Цену позиции фиксируем из БД на момент заказа (не из запроса клиента). Остаток списываем условием `stock >= qty` (`ProductMethods.decrementStock`). Запись заказа (списание, `orders`, `order_items`) оркестрируется в роуте через `runInTransaction` — при ошибке транзакция откатывается целиком. Предварительная проверка в роуте остаётся до транзакции для раннего отказа; гонки ловит `decrementStock` внутри колбэка.
 
 ## Нюансы данных
 
@@ -78,7 +81,7 @@ src/
 
 ## Тесты
 
-`bun test`. Код, ходящий в БД, мокается точечно через `mock.module` — мокай либо модуль метода (`../global/database/methods/<entity>`), либо `db` из `DatabaseSingleton`. Реальная БД для юнит-тестов не нужна.
+`bun test`. Тесты лежат рядом с роутами (`routes/<name>/*.test.ts`). Код, ходящий в БД, мокается точечно через `mock.module` — мокай либо модуль метода (`../../global/database/methods/<entity>`), либо `db` из `DatabaseSingleton`. Реальная БД для юнит-тестов не нужна.
 
 ## Состояние
 
