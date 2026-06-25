@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { AppError } from "../global/errors";
+import { AppError } from "@global/errors";
 
 // Если выброшена прикладная ошибка — отдаём её текст и статус.
 // Остальное логируем и отвечаем 500.

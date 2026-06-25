@@ -1,8 +1,8 @@
 import { Context, Telegraf } from "telegraf";
 import type { Listener } from "./Listener";
-import { UserMethods } from "../../global/database/methods/user";
+import { UserMethods } from "@global/database/methods/user";
 import { startTexts } from "../../texts/startTexts";
-import { formatPhoneNumber } from "../../global/utils/formatPhoneNumber";
+import { formatPhoneNumber } from "@global/utils/formatPhoneNumber";
 
 export class PhoneListener implements Listener {
   constructor(private readonly bot: Telegraf) {

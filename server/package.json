@@ -3,6 +3,9 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "imports": {
+    "@global/*": "./src/global/*"
+  },
   "scripts": {
     "dev": "bun run src/index.ts",
     "test": "bun test",
@@ -12,6 +15,7 @@
     "db:seed": "bun run src/global/database/seed.ts"
   },
   "devDependencies": {
+    "@testcontainers/postgresql": "^12.0.3",
     "@types/bun": "latest",
     "@types/pg": "^8.20.0",
     "@types/supertest": "^7.2.0",

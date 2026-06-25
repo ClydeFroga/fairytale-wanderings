@@ -118,7 +118,7 @@ bun run db:push       # запушить схему без файла мигра
 
 ```bash
 # сервер
-cd server && bun test
+cd server && bun test   # или из корня репозитория: bun test (см. bunfig.toml)
 
 # клиент: проверка типов и сборка
 cd client && bun run type-check && bun run build

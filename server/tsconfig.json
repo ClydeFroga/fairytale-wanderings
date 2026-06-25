@@ -13,6 +13,10 @@
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@global/*": ["./src/global/*"]
+    },
 
     // Best practices
     "strict": true,

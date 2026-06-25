@@ -1,13 +1,13 @@
 import { Hono } from "hono";
 import { createOrderValidator } from "./validator";
-import { ProductMethods } from "../../global/database/methods/product";
-import { OrderMethods } from "../../global/database/methods/order";
-import { OrderItemMethods } from "../../global/database/methods/orderItem";
-import { runInTransaction } from "../../global/database/transaction";
+import { ProductMethods } from "@global/database/methods/product";
+import { OrderMethods } from "@global/database/methods/order";
+import { OrderItemMethods } from "@global/database/methods/orderItem";
+import { runInTransaction } from "@global/database/transaction";
 import {
   InsufficientStockError,
   ProductNotFoundError,
-} from "../../global/errors";
+} from "@global/errors";
 
 const app = new Hono();
 

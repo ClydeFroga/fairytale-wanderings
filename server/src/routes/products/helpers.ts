@@ -1,4 +1,4 @@
-import type { INewProduct } from "../../global/database/shema";
+import type { INewProduct } from "@global/database/shema";
 
 // Приводим поля формы к типам колонок БД (price -> number, details -> object и т.д.)
 export function mapFormToProduct(

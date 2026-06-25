@@ -1,7 +1,7 @@
 import { Context, Telegraf } from "telegraf";
 import { startTexts } from "../../texts/startTexts";
 import type { Listener } from "./Listener";
-import { UserMethods } from "../../global/database/methods/user";
+import { UserMethods } from "@global/database/methods/user";
 
 export class StartListener implements Listener {
   constructor(private readonly bot: Telegraf) {

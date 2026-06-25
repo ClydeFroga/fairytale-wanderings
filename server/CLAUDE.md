@@ -12,13 +12,13 @@
 - **Изображения:** sharp (конвертация в webp при загрузке)
 - **Бот:** telegraf
 
-TypeScript строгий, `moduleResolution: bundler`, ESM. Запускается напрямую через Bun (без сборки).
+TypeScript строгий, `moduleResolution: bundler`, ESM. Импорты из `src/global/` — через алиас `@global/*` (`package.json` → `imports`, `tsconfig.json` → `paths`). Запускается напрямую через Bun (без сборки).
 
 ## Команды
 
 ```bash
 bun run dev          # запуск сервера (src/index.ts)
-bun test             # тесты (bun:test)
+bun test             # E2E-тесты (реальная БД в Docker, см. ниже)
 bun run db:generate  # сгенерировать SQL-миграцию из схемы
 bun run db:migrate   # применить миграции
 bun run db:push      # запушить схему в БД без файла миграции (dev)
@@ -31,7 +31,8 @@ bun run db:seed      # залить 5 тестовых товаров
 
 ```
 src/
-  index.ts                      # точка входа: app, CORS, onError, монтирование роутов, статика
+  app.ts                        # createApp() — Hono без CORS/бота/статики (для тестов и index)
+  index.ts                      # точка входа: CORS, статика, serve
   middleware/
     errorHandler.ts             # обработчик app.onError
   routes/
@@ -40,10 +41,13 @@ src/
       route.ts                  # хендлеры + бизнес-логика
       validator.ts              # zod-валидаторы
       helpers.ts                # вспомогательные функции роута (напр. mapFormToProduct)
-      products.test.ts          # тесты роута (bun:test)
+      products.e2e.test.ts      # E2E-тесты роута (реальная БД)
     orders/
       route.ts
       validator.ts
+      orders.e2e.test.ts
+  test/e2e/                     # инфраструктура E2E: preload, postgres, migrate, reset
+    preload.ts  postgres.ts  migrate.ts  db.ts
   global/
     database/
       DatabaseSingleton.ts      # пул + drizzle, экспортирует готовый `db`
@@ -54,7 +58,9 @@ src/
         product.ts  order.ts  orderItem.ts  user.ts
       shema/                    # Drizzle-схема, по файлу на сущность (+ index)
         productSchema.ts userSchema.ts orderSchema.ts index.ts
-      seed.ts                   # наполнение тестовыми данными
+      seed/                     # данные и функции сидинга
+        data.ts  seedProducts.ts
+      seed.ts                   # CLI: bun run db:seed
     errors/                     # классы ошибок (AppError + наследники)
     utils/                      # upload, deleteFile, formatPhoneNumber
   bot/                          # Telegram-бот (telegraf)
@@ -81,7 +87,17 @@ src/
 
 ## Тесты
 
-`bun test`. Тесты лежат рядом с роутами (`routes/<name>/*.test.ts`). Код, ходящий в БД, мокается точечно через `mock.module` — мокай либо модуль метода (`../../global/database/methods/<entity>`), либо `db` из `DatabaseSingleton`. Реальная БД для юнит-тестов не нужна.
+E2E через `bun test` (preload в `bunfig.toml`). Тесты лежат рядом с роутами: `routes/<name>/*.e2e.test.ts`. Моки не используются — проверяется полный путь: HTTP → роут → методы БД → PostgreSQL.
+
+**Жизненный цикл БД** (`src/test/e2e/preload.ts`):
+1. Поднять ephemeral Postgres (testcontainers или fallback `compose.test.yml` на порту **15433**)
+2. Накатить миграции из `drizzle/`
+3. В `beforeEach` каждого теста — `resetDatabase()` (TRUNCATE + сид)
+4. После всех тестов — disconnect и остановка контейнера (`down -v` для compose)
+
+Нужен **Docker**. Переопределить URL: `TEST_DATABASE_URL=... bun test`.
+
+Корневой `compose.test.yml` — только для тестов, dev-БД на 15432 не затрагивается.
 
 ## Состояние
 

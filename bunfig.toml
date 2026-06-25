@@ -1,0 +1,4 @@
+[test]
+root = "./server"
+preload = ["./server/src/test/e2e/preload.ts"]
+timeout = 120000

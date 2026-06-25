@@ -1,10 +1,10 @@
 import { Hono } from "hono";
-import { ProductMethods } from "../../global/database/methods/product";
+import { ProductMethods } from "@global/database/methods/product";
 import { createProductValidator, updateProductValidator } from "./validator";
 import { mapFormToProduct } from "./helpers";
-import type { INewProduct } from "../../global/database/shema";
-import { Upload } from "../../global/utils/upload";
-import { DeleteFile } from "../../global/utils/deleteFile";
+import type { INewProduct } from "@global/database/shema";
+import { Upload } from "@global/utils/upload";
+import { DeleteFile } from "@global/utils/deleteFile";
 
 const app = new Hono();
 
