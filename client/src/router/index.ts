@@ -3,6 +3,7 @@ import StoreView from '../views/StoreView.vue'
 import CRMView from '../views/CRMView.vue'
 import ProductPageView from '../views/ProductPageView.vue'
 import CartView from '../views/CartView.vue'
+import OrderSuccessView from '../views/OrderSuccessView.vue'
 import AdminLayout from '../layouts/AdminLayout.vue'
 
 const router = createRouter({
@@ -34,6 +35,11 @@ const router = createRouter({
       path: '/cart',
       name: 'cart',
       component: CartView,
+    },
+    {
+      path: '/order/success',
+      name: 'order-success',
+      component: OrderSuccessView,
     },
   ],
 })

@@ -34,6 +34,18 @@ describe("Products E2E", () => {
     expect(data.name).toBe(product.name);
   });
 
+  it("GET /products — игнорирует некорректные query-фильтры", async () => {
+    const res = await app.fetch(
+      new Request(
+        "http://localhost/products?price=abc&stock=-1&isActive=maybe&_id=not-uuid&foo=bar",
+      ),
+    );
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data).toHaveLength(5);
+  });
+
   it("GET /products/:id — 404 для несуществующего товара", async () => {
     const res = await app.fetch(
       new Request("http://localhost/products/00000000-0000-4000-8000-000000000000"),

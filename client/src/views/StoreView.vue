@@ -5,9 +5,8 @@ import Categories from '@/components/global/Categories.vue'
 import ProductMenu from '@/components/product/ProductMenu.vue'
 import { ref, onMounted, type Ref } from 'vue'
 import type { IProduct } from '@/components/product/IProduct'
-import { ROOT_URL } from '@/config'
+import { getProducts } from '@/api/products'
 
-//Грузим с сервера
 const products: Ref<IProduct[]> = ref([])
 const categories: Ref<{ param: string; text: string }[]> = ref([
   { param: 'new', text: 'Новое' },
@@ -16,9 +15,7 @@ const categories: Ref<{ param: string; text: string }[]> = ref([
 ])
 
 onMounted(() => {
-  fetch(`${ROOT_URL}/products`)
-    .then((res) => res.json())
-    .then((data) => (products.value = data))
+  getProducts().then((data) => (products.value = data))
 })
 </script>
 
@@ -28,10 +25,10 @@ onMounted(() => {
   >
     <div>
       <Header :backButton="false" :BackLink="'/'" />
-      <Search />
+      <Search @results="products = $event" />
       <Categories :categories="categories" />
 
-      <div class="grid grid-cols-[repeat(auto-fit,minmax(158px,1fr))] gap-3 p-4">
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3 p-4">
         <ProductMenu v-for="product in products" :key="product._id" :product="product" />
       </div>
     </div>

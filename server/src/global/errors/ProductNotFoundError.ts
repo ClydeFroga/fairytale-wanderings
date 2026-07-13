@@ -2,6 +2,6 @@ import { AppError } from "./AppError";
 
 export class ProductNotFoundError extends AppError {
   constructor(public readonly productId: string) {
-    super(`Товар не найден: ${productId}`, 404);
+    super(`Товар не найден: ${productId}`, 404, "PRODUCT_NOT_FOUND", { productId });
   }
 }

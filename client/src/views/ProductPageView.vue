@@ -16,6 +16,7 @@ const product: Ref<IProduct> = ref({
   category: '',
   isActive: true,
   details: {},
+  stock: 0,
 })
 
 const props = defineProps({
@@ -84,7 +85,11 @@ onMounted(() => {
 
       <div>
         <div class="flex px-4 py-3 mb-5">
-          <AddToBusketButton text="Добавить в корзину" :product="product" />
+          <AddToBusketButton
+            :text="product.stock === 0 ? 'Нет в наличии' : 'Добавить в корзину'"
+            :product="product"
+            :disabled="product.stock === 0"
+          />
         </div>
       </div>
     </div>

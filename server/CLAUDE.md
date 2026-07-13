@@ -12,7 +12,7 @@
 - **Изображения:** sharp (конвертация в webp при загрузке)
 - **Бот:** telegraf
 
-TypeScript строгий, `moduleResolution: bundler`, ESM. Импорты из `src/global/` — через алиас `@global/*` (`package.json` → `imports`, `tsconfig.json` → `paths`). Запускается напрямую через Bun (без сборки).
+TypeScript строгий, `moduleResolution: bundler`, ESM. Алиасы: `@global/*` → `src/global/`, `@validators/*` → `src/utils/validators/` (`package.json` → `imports`, `tsconfig.json` → `paths`). Запускается напрямую через Bun (без сборки).
 
 ## Команды
 
@@ -62,7 +62,11 @@ src/
         data.ts  seedProducts.ts
       seed.ts                   # CLI: bun run db:seed
     errors/                     # классы ошибок (AppError + наследники)
+    mail/                       # SMTP-уведомление (nodemailer): mailer.ts + orderEmail.ts
     utils/                      # upload, deleteFile, formatPhoneNumber
+  utils/
+    validators/                 # переиспользуемые zod-схемы (@validators/*)
+      query.ts  index.ts
   bot/                          # Telegram-бот (telegraf)
 ```
 
@@ -101,6 +105,6 @@ E2E через `bun test` (preload в `bunfig.toml`). Тесты лежат ря
 
 ## Состояние
 
-- Веб-приём заказа: запись в БД со списанием остатка и сохранением имени/контакта — готово. Отправка письма на почту — следующий шаг.
+- Веб-приём заказа: запись в БД со списанием остатка и сохранением имени/контакта — готово. Письмо владелице по SMTP при создании заказа — готово (`global/mail/`, `nodemailer`; шлётся после коммита транзакции, сбой почты не ломает заказ; без `SMTP_*`/`MAIL_TO` тихо пропускается).
 - Бот: пока только регистрация (`/start` + телефон), оформление заказа не реализовано, запуск в `index.ts` закомментирован.
 - Задел под оплату (`status`, `paymentMethod` в `orders`) и доставку СДЭК — на будущее.

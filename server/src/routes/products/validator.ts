@@ -1,5 +1,28 @@
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
+import {
+  optionalQueryBool,
+  optionalQueryInt,
+  optionalQueryString,
+  optionalQueryUuid,
+} from "@validators/query";
+
+/** Query GET /products: неизвестные ключи отбрасываются, невалидные значения — undefined. */
+export const productListQuerySchema = z
+  .object({
+    _id: optionalQueryUuid,
+    name: optionalQueryString,
+    price: optionalQueryInt,
+    description: optionalQueryString,
+    category: optionalQueryString,
+    isActive: optionalQueryBool,
+    stock: optionalQueryInt,
+  })
+  .strip();
+
+export type ProductListQuery = z.infer<typeof productListQuerySchema>;
+
+export const listProductsValidator = zValidator("query", productListQuerySchema);
 
 export const createProductValidator = zValidator(
   "form",
@@ -10,7 +33,7 @@ export const createProductValidator = zValidator(
     category: z.string(),
     isActive: z.string().optional(),
     image: z.instanceof(File).optional(),
-  })
+  }),
 );
 
 export const updateProductValidator = zValidator(
@@ -22,5 +45,5 @@ export const updateProductValidator = zValidator(
     category: z.string().optional(),
     isActive: z.string().optional(),
     image: z.instanceof(File).optional(),
-  })
+  }),
 );

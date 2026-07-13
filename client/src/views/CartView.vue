@@ -2,7 +2,7 @@
 import Header from '@/components/global/Header.vue'
 import { useCartStore } from '@/stores/cart'
 import MakeOrderButton from '@/components/global/MakeOrderButton.vue'
-import { vMaska } from 'maska/vue'
+import FormField from '@/components/global/FormField.vue'
 
 // const deliveryCost = ref(20)
 
@@ -25,6 +25,7 @@ const cartStore = useCartStore()
         v-for="[product, quantity] of cartStore.products.entries()"
         :key="product._id"
         class="flex gap-4 justify-between"
+        :class="{ 'bg-red-50 rounded-lg': cartStore.isInsufficient(product) }"
       >
         <div class="flex gap-4 px-4 py-3">
           <div
@@ -39,10 +40,16 @@ const cartStore = useCartStore()
               {{ product.category }}
             </p>
             <p class="text-[#97704e] text-sm font-normal leading-normal">Кол-во: {{ quantity }}</p>
+            <p
+              v-if="cartStore.isInsufficient(product)"
+              class="text-red-600 text-sm font-medium leading-normal"
+            >
+              В наличии только {{ product.stock }} шт.
+            </p>
           </div>
         </div>
 
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-4 pr-4">
           <button
             @click="cartStore.removeProduct(product)"
             class="text-xl cursor-pointer bg-(--color-background-mute) font-bold leading-normal tracking-[0.015em] rounded-lg size-10"
@@ -79,36 +86,36 @@ const cartStore = useCartStore()
         </div>
       </div>
       <div class="flex max-w-[480px] flex-col gap-4 px-4 py-3">
-        <label class="flex flex-col min-w-40 flex-1">
-          <p class="text-base font-medium leading-normal pb-2">Адрес доставки</p>
-          <input
-            v-model="cartStore.address"
-            placeholder="Введите адрес доставки"
-            class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl focus:outline-0 focus:ring-0 border border-[#e7dbd0] bg-[#fcfaf8] focus:border-[#e7dbd0] h-14 placeholder:text-[#97704e] p-[15px] text-base font-normal leading-normal"
-          />
-        </label>
-        <label class="flex flex-col min-w-40 flex-1">
-          <p class="text-base font-medium leading-normal pb-2">Имя и фамилия</p>
-          <input
-            v-model="cartStore.name"
-            placeholder="Введите имя и фамилию"
-            class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl focus:outline-0 focus:ring-0 border border-[#e7dbd0] bg-[#fcfaf8] focus:border-[#e7dbd0] h-14 placeholder:text-[#97704e] p-[15px] text-base font-normal leading-normal"
-          />
-        </label>
-        <label class="flex flex-col min-w-40 flex-1">
-          <p class="text-base font-medium leading-normal pb-2">Номер телефона</p>
-          <input
-            v-model="cartStore.phone"
-            v-maska="'+7 (###) ###-##-##'"
-            type="tel"
-            inputmode="tel"
-            placeholder="+7 (999) 999-99-99"
-            class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl focus:outline-0 focus:ring-0 border border-[#e7dbd0] bg-[#fcfaf8] focus:border-[#e7dbd0] h-14 placeholder:text-[#97704e] p-[15px] text-base font-normal leading-normal"
-          />
-        </label>
+        <FormField
+          v-model="cartStore.address"
+          label="Адрес доставки"
+          placeholder="Введите адрес доставки"
+          :has-error="cartStore.showValidationErrors && !cartStore.isAddressValid"
+        />
+        <FormField
+          v-model="cartStore.name"
+          label="Имя и фамилия"
+          placeholder="Введите имя и фамилию"
+          :has-error="cartStore.showValidationErrors && !cartStore.isNameValid"
+        />
+        <FormField
+          v-model="cartStore.phone"
+          label="Номер телефона"
+          placeholder="+7 (999) 999-99-99"
+          mask="+7 (###) ###-##-##"
+          type="tel"
+          inputmode="tel"
+          :has-error="cartStore.showValidationErrors && !cartStore.isPhoneValid"
+        />
       </div>
     </div>
     <div>
+      <p
+        v-if="cartStore.orderError"
+        class="px-4 pb-1 text-red-600 text-sm font-medium leading-normal text-center"
+      >
+        {{ cartStore.orderError }}
+      </p>
       <div class="flex px-4 py-3">
         <MakeOrderButton class="truncate" text="Оформить заказ (без оплаты)" />
       </div>
