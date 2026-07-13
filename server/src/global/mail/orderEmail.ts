@@ -16,6 +16,17 @@ function formatPrice(value: number): string {
   return `${value.toLocaleString("ru-RU")} ₽`;
 }
 
+// Экранирование значений, попадающих в HTML-часть письма (имя, контакт, адрес,
+// название товара — приходят от пользователя). Защита от HTML-инъекции.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /** Формирует письмо владелице о новом заказе: состав, суммы, контакт, доставка. */
 export function buildOrderEmail(order: IOrder, items: OrderEmailItem[]): MailMessage {
   const subject = `Новый заказ на сумму ${formatPrice(order.totalPrice)}`;
@@ -45,7 +56,7 @@ export function buildOrderEmail(order: IOrder, items: OrderEmailItem[]): MailMes
     .map(
       (r) => `
         <tr>
-          <td style="padding:6px 12px;border-bottom:1px solid #eee;">${r.name}</td>
+          <td style="padding:6px 12px;border-bottom:1px solid #eee;">${escapeHtml(r.name)}</td>
           <td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:center;">${r.quantity}</td>
           <td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right;">${formatPrice(r.sum)}</td>
         </tr>`,
@@ -68,9 +79,9 @@ export function buildOrderEmail(order: IOrder, items: OrderEmailItem[]): MailMes
       <p style="font-size:16px;font-weight:bold;margin:0 0 16px;">
         Итого: ${formatPrice(order.totalPrice)}
       </p>
-      <p style="margin:0 0 4px;"><b>Имя:</b> ${order.customerName || "—"}</p>
-      <p style="margin:0 0 4px;"><b>Контакт:</b> ${order.contact || "—"}</p>
-      <p style="margin:0 0 4px;"><b>Доставка:</b> ${order.deliveryAddress || "—"}</p>
+      <p style="margin:0 0 4px;"><b>Имя:</b> ${escapeHtml(order.customerName || "—")}</p>
+      <p style="margin:0 0 4px;"><b>Контакт:</b> ${escapeHtml(order.contact || "—")}</p>
+      <p style="margin:0 0 4px;"><b>Доставка:</b> ${escapeHtml(order.deliveryAddress || "—")}</p>
       <p style="margin:0 0 4px;"><b>Канал:</b> ${CHANNEL_LABEL[order.channel] ?? order.channel}</p>
       <p style="margin:16px 0 0;color:#97704e;font-size:12px;">Номер заказа: ${order.id}</p>
     </div>`;
