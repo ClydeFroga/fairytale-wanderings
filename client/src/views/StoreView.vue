@@ -3,19 +3,31 @@ import Header from '@/components/global/Header.vue'
 import Search from '@/components/global/Search.vue'
 import Categories from '@/components/global/Categories.vue'
 import ProductMenu from '@/components/product/ProductMenu.vue'
-import { ref, onMounted, type Ref } from 'vue'
+import { ref, onMounted, computed, type Ref } from 'vue'
+import { useRoute } from 'vue-router'
 import type { IProduct } from '@/components/product/IProduct'
 import { getProducts } from '@/api/products'
+import { getCategories, type ICategory } from '@/api/categories'
+
+const route = useRoute()
 
 const products: Ref<IProduct[]> = ref([])
-const categories: Ref<{ param: string; text: string }[]> = ref([
-  { param: 'new', text: 'Новое' },
-  { param: 'popular', text: 'Популярное' },
-  { param: 'best', text: 'Лучшее' },
+const categoriesList: Ref<ICategory[]> = ref([])
+
+// Вкладки: «Все» + категории из БД.
+const categoryTabs = computed(() => [
+  { param: '', text: 'Все' },
+  ...categoriesList.value.map((c) => ({ param: c.slug, text: c.name })),
 ])
 
-onMounted(() => {
-  getProducts().then((data) => (products.value = data))
+// Активная категория (slug) из query — строкой либо undefined.
+const activeCategory = computed(() =>
+  typeof route.query.category === 'string' ? route.query.category : undefined,
+)
+
+onMounted(async () => {
+  categoriesList.value = await getCategories()
+  products.value = await getProducts({ category: activeCategory.value })
 })
 </script>
 
@@ -25,8 +37,8 @@ onMounted(() => {
   >
     <div>
       <Header :backButton="false" :BackLink="'/'" />
-      <Search @results="products = $event" />
-      <Categories :categories="categories" />
+      <Search :category="activeCategory" @results="products = $event" />
+      <Categories :categories="categoryTabs" />
 
       <div class="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3 p-4">
         <ProductMenu v-for="product in products" :key="product._id" :product="product" />

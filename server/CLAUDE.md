@@ -55,9 +55,9 @@ src/
       types/                    # DTO запросов к БД (фильтры, сортировка и т.п.)
         product.ts  index.ts
       methods/                  # ТОЛЬКО обращения к БД (репозиторий)
-        product.ts  order.ts  orderItem.ts  user.ts
+        product.ts  order.ts  orderItem.ts  user.ts  category.ts
       shema/                    # Drizzle-схема, по файлу на сущность (+ index)
-        productSchema.ts userSchema.ts orderSchema.ts index.ts
+        productSchema.ts userSchema.ts orderSchema.ts categorySchema.ts index.ts
       seed/                     # данные и функции сидинга
         data.ts  seedProducts.ts
       seed.ts                   # CLI: bun run db:seed

@@ -14,6 +14,7 @@ export type CreateOrderBody = {
   deliveryAddress?: string
   customerName?: string
   contact?: string
+  initData?: string
 }
 
 export function createOrder(body: CreateOrderBody) {

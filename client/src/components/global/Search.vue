@@ -5,6 +5,9 @@ import type { IProduct } from '@/components/product/IProduct'
 import { onUnmounted, ref, watch } from 'vue'
 
 const search = ref('')
+const props = defineProps<{
+  category?: string // slug активной категории — фильтруем вместе с поиском
+}>()
 const emit = defineEmits<{
   results: [products: IProduct[]]
 }>()
@@ -19,7 +22,10 @@ function runSearch(query?: string) {
 
   const trimmed = (query ?? search.value).trim()
 
-  getProducts(trimmed ? { name: trimmed } : {}).then((data) => emit('results', data))
+  getProducts({
+    name: trimmed || undefined,
+    category: props.category || undefined,
+  }).then((data) => emit('results', data))
 }
 
 watch(search, (newVal) => {
@@ -29,6 +35,12 @@ watch(search, (newVal) => {
 
   timeoutId = setTimeout(() => runSearch(newVal), 2000)
 })
+
+// Смена категории (вкладки) — сразу перезагружаем с текущим поисковым запросом.
+watch(
+  () => props.category,
+  () => runSearch(),
+)
 
 function onEnter() {
   runSearch()
@@ -54,7 +66,7 @@ onUnmounted(() => {
           <MagnifyingGlass />
         </div>
         <input
-          placeholder="Поиск"
+          placeholder="Поиск изделий"
           class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#1b140e] focus:outline-0 focus:ring-0 border-none bg-[#f3ede7] focus:border-none h-full placeholder:text-[#97704e] px-4 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal"
           v-model="search"
           @keydown.enter="onEnter"

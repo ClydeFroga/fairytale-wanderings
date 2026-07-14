@@ -15,49 +15,33 @@ export class StartListener implements Listener {
   private async start(ctx: Context) {
     if (!ctx.from) return;
 
-    const user = await UserMethods.getByTelegramId(ctx.from.id);
+    // Сохраняем пользователя при первом входе — telegramId нужен для заказов
+    // и уведомлений (Этап 5). Телефон больше не обязателен: личность приходит
+    // из initData Mini App.
+    const existing = await UserMethods.getByTelegramId(ctx.from.id);
+    if (!existing) {
+      await UserMethods.create({
+        telegramId: ctx.from.id,
+        firstName: ctx.from.first_name,
+        username: ctx.from.username,
+      });
+    }
 
-    if (!user) {
-      await this.handleNewUser(ctx);
+    await this.sendWelcome(ctx);
+  }
+
+  private async sendWelcome(ctx: Context) {
+    const url = process.env.WEBAPP_URL;
+
+    if (!url) {
+      console.warn("WEBAPP_URL не задан — кнопка магазина не показана");
+      await ctx.reply(startTexts.helloNoWebApp);
       return;
     }
 
-    if (!user.phone) {
-      await this.phoneRequest(ctx);
-      return;
-    }
-
-    ctx.reply(startTexts.alreadyRegistered);
-  }
-
-  private async handleNewUser(ctx: Context) {
-    if (!ctx.from) return;
-
-    ctx.reply(startTexts.hello);
-
-    await UserMethods.create({
-      telegramId: ctx.from.id,
-      firstName: ctx.from.first_name,
-      username: ctx.from.username,
-    });
-
-    await this.phoneRequest(ctx);
-  }
-
-  private async phoneRequest(ctx: Context) {
-    //Запрашиваем номер телефона
-    await ctx.reply(startTexts.phoneRequest, {
+    await ctx.reply(startTexts.hello, {
       reply_markup: {
-        keyboard: [
-          [
-            {
-              text: startTexts.phoneRequestButton,
-              request_contact: true,
-            },
-          ],
-        ],
-        resize_keyboard: true,
-        one_time_keyboard: true,
+        inline_keyboard: [[{ text: startTexts.openShopButton, web_app: { url } }]],
       },
     });
   }

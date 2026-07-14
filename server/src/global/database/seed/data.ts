@@ -1,11 +1,21 @@
-import type { INewProduct } from "../shema";
+import type { INewProduct, INewCategory } from "../shema";
 
-export const seedProductsData: INewProduct[] = [
+export const seedCategoriesData: INewCategory[] = [
+  { name: "Игрушки", slug: "toys", sortOrder: 1 },
+  { name: "Декор", slug: "decor", sortOrder: 2 },
+  { name: "Аксессуары", slug: "accessories", sortOrder: 3 },
+  { name: "Для кухни", slug: "kitchen", sortOrder: 4 },
+];
+
+// Сид товаров. `categorySlug` резолвится в categoryId при вставке (см. seedProducts.ts).
+export type SeedProduct = Omit<INewProduct, "categoryId"> & { categorySlug: string };
+
+export const seedProductsData: SeedProduct[] = [
   {
     name: "Вязаный мишка Тедди",
     price: 1800,
     stock: 5,
-    category: "toys",
+    categorySlug: "toys",
     description:
       "Мягкий мишка ручной вязки из хлопка, наполнитель — гипоаллергенный холлофайбер.",
     image: ["https://picsum.photos/seed/teddy/600/600"],
@@ -15,7 +25,7 @@ export const seedProductsData: INewProduct[] = [
     name: "Плед «Облако»",
     price: 4500,
     stock: 3,
-    category: "decor",
+    categorySlug: "decor",
     description:
       "Объёмный плед крупной вязки — мягкий и тёплый, для уютных вечеров.",
     image: ["https://picsum.photos/seed/blanket/600/600"],
@@ -25,7 +35,7 @@ export const seedProductsData: INewProduct[] = [
     name: "Шапка-бини",
     price: 1200,
     stock: 10,
-    category: "accessories",
+    categorySlug: "accessories",
     description: "Тёплая шапка ручной вязки на зиму. Один размер.",
     image: ["https://picsum.photos/seed/beanie/600/600"],
     details: { Материал: "шерсть/акрил", Размер: "универсальный" },
@@ -34,7 +44,7 @@ export const seedProductsData: INewProduct[] = [
     name: "Амигуруми «Котик»",
     price: 900,
     stock: 8,
-    category: "toys",
+    categorySlug: "toys",
     description: "Маленькая вязаная игрушка-котик, помещается в ладони.",
     image: ["https://picsum.photos/seed/cat/600/600"],
     details: { Материал: "хлопок", Высота: "12 см" },
@@ -43,7 +53,7 @@ export const seedProductsData: INewProduct[] = [
     name: "Прихватки (пара)",
     price: 650,
     stock: 12,
-    category: "kitchen",
+    categorySlug: "kitchen",
     description: "Набор из двух вязаных прихваток для кухни, плотная двойная вязка.",
     image: ["https://picsum.photos/seed/potholder/600/600"],
     details: { Материал: "хлопок", Количество: "2 шт" },

@@ -1,14 +1,27 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import Header from '@/components/global/Header.vue'
 import { useCartStore } from '@/stores/cart'
 import MakeOrderButton from '@/components/global/MakeOrderButton.vue'
 import FormField from '@/components/global/FormField.vue'
-
-// const deliveryCost = ref(20)
-
-// console.log(window.Telegram.WebApp.initDataUnsafe)
+import { isTelegram } from '@/scripts/telegram'
+import { getMe } from '@/api/users'
 
 const cartStore = useCartStore()
+
+// Для заказа из Телеграма — предзаполняем телефон из профиля (если он там есть
+// и поле ещё пустое). Ошибку глушим: предзаполнение необязательно.
+onMounted(async () => {
+  if (!isTelegram()) return
+  try {
+    const me = await getMe()
+    if (me?.phone && !cartStore.phone) {
+      cartStore.phone = me.phone
+    }
+  } catch {
+    // не критично — пользователь введёт телефон вручную
+  }
+})
 </script>
 
 <template>

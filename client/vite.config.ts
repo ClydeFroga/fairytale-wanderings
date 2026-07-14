@@ -11,6 +11,14 @@ export default defineConfig({
     port: 5173,
     host: true,
     allowedHosts: ['puma-winning-moth.ngrok-free.app'],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api/, ''),
+      },
+      '/images': { target: 'http://localhost:3000', changeOrigin: true },
+    },
   },
   plugins: [vue(), vueDevTools(), tailwindcss()],
   resolve: {

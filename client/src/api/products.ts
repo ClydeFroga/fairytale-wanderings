@@ -3,6 +3,7 @@ import type { IProduct } from '@/components/product/IProduct'
 
 export type ProductListFilters = {
   name?: string
+  category?: string // slug категории
 }
 
 export function getProducts(filters: ProductListFilters = {}) {

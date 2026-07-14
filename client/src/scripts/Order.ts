@@ -1,5 +1,6 @@
 import type { IProduct } from '@/components/product/IProduct'
 import { createOrder } from '@/api/orders'
+import { getInitData } from '@/scripts/telegram'
 
 export class Order {
   products: Map<IProduct, number>
@@ -23,6 +24,7 @@ export class Order {
       deliveryAddress: this.address,
       customerName: this.name,
       contact: this.phone,
+      initData: getInitData(),
     })
   }
 }

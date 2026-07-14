@@ -1,8 +1,13 @@
 import { describe, it, expect, beforeEach } from "bun:test";
+import { sign } from "@telegram-apps/init-data-node";
 import { createApp } from "../../app";
 import { resetDatabase } from "../../test/e2e/db";
 import { ProductMethods } from "@global/database/methods/product";
+import { UserMethods } from "@global/database/methods/user";
 import type { IOrder, IProduct } from "@global/database/shema";
+
+const BOT_TOKEN = "123456:TEST_BOT_TOKEN";
+process.env.BOT_TOKEN = BOT_TOKEN;
 
 const app = createApp();
 
@@ -119,5 +124,82 @@ describe("Orders E2E", () => {
 
     const updated = await ProductMethods.getById(product._id);
     expect(updated?.stock).toBe(0);
+  });
+
+  it("POST /orders/create — заказ из Telegram: channel=telegram и создаётся пользователь", async () => {
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+    const initData = sign(
+      { user: { id: 555001, first_name: "Аня", username: "anya" } } as never,
+      BOT_TOKEN,
+      new Date(),
+    );
+
+    const res = await app.fetch(
+      new Request("http://localhost/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ productId: product._id, quantity: 1 }],
+          customerName: "Аня",
+          initData,
+        }),
+      }),
+    );
+    const order = (await res.json()) as IOrder;
+
+    expect(res.status).toBe(201);
+    expect(order.channel).toBe("telegram");
+    expect(order.userId).toBeTruthy();
+
+    const user = await UserMethods.getByTelegramId(555001);
+    expect(user?.id).toBe(order.userId!);
+    expect(user?.firstName).toBe("Аня");
+  });
+
+  it("POST /orders/create — заказ из Telegram сохраняет телефон в профиль", async () => {
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+    const initData = sign(
+      { user: { id: 555003, first_name: "Оля" } } as never,
+      BOT_TOKEN,
+      new Date(),
+    );
+
+    const res = await app.fetch(
+      new Request("http://localhost/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ productId: product._id, quantity: 1 }],
+          customerName: "Оля",
+          contact: "+7 (999) 555-33-11",
+          initData,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(201);
+
+    const user = await UserMethods.getByTelegramId(555003);
+    expect(user?.phone).toBe("+7 (999) 555-33-11");
+  });
+
+  it("POST /orders/create — поддельная initData отклоняется (401)", async () => {
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+    const initData = sign({ user: { id: 555002, first_name: "Fake" } } as never, "999:WRONG", new Date());
+
+    const res = await app.fetch(
+      new Request("http://localhost/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ productId: product._id, quantity: 1 }],
+          initData,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(401);
+    // остаток не тронут
+    expect((await ProductMethods.getById(product._id))?.stock).toBe(product.stock);
   });
 });

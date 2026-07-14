@@ -3,6 +3,7 @@ import { ROOT_URL } from '@/config'
 type RequestOptions = {
   method?: string
   body?: unknown
+  headers?: Record<string, string>
 }
 
 type ApiErrorBody = {
@@ -28,11 +29,14 @@ export class ApiClient {
   constructor(private readonly baseUrl: string = ROOT_URL) {}
 
   async request(path: string, options: RequestOptions = {}) {
-    const { method = 'GET', body } = options
+    const { method = 'GET', body, headers } = options
+
+    const finalHeaders: Record<string, string> = { ...headers }
+    if (body !== undefined) finalHeaders['Content-Type'] = 'application/json'
 
     return fetch(this.baseUrl + path, {
       method,
-      headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+      headers: Object.keys(finalHeaders).length ? finalHeaders : undefined,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     })
   }

@@ -10,7 +10,7 @@ export function mapFormToProduct(
   if (typeof body.name === "string") data.name = body.name;
   if (typeof body.price === "string") data.price = Number(body.price);
   if (typeof body.description === "string") data.description = body.description;
-  if (typeof body.category === "string") data.category = body.category;
+  if (typeof body.categoryId === "string") data.categoryId = body.categoryId;
   if (typeof body.isActive === "string") data.isActive = body.isActive !== "false";
 
   if (typeof body.details === "string") {

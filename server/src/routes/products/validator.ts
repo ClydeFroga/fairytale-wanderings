@@ -2,7 +2,6 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import {
   optionalQueryBool,
-  optionalQueryInt,
   optionalQueryString,
   optionalQueryUuid,
 } from "@validators/query";
@@ -12,11 +11,8 @@ export const productListQuerySchema = z
   .object({
     _id: optionalQueryUuid,
     name: optionalQueryString,
-    price: optionalQueryInt,
-    description: optionalQueryString,
-    category: optionalQueryString,
+    category: optionalQueryString, // slug категории
     isActive: optionalQueryBool,
-    stock: optionalQueryInt,
   })
   .strip();
 
@@ -30,7 +26,7 @@ export const createProductValidator = zValidator(
     name: z.string(),
     price: z.string(),
     description: z.string(),
-    category: z.string(),
+    categoryId: z.string(),
     isActive: z.string().optional(),
     image: z.instanceof(File).optional(),
   }),
@@ -42,7 +38,7 @@ export const updateProductValidator = zValidator(
     name: z.string().optional(),
     price: z.string().optional(),
     description: z.string().optional(),
-    category: z.string().optional(),
+    categoryId: z.string().optional(),
     isActive: z.string().optional(),
     image: z.instanceof(File).optional(),
   }),

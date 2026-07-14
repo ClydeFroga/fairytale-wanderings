@@ -14,6 +14,8 @@ const product: Ref<IProduct> = ref({
   image: [],
   description: '',
   category: '',
+  categorySlug: '',
+  categoryId: '',
   isActive: true,
   details: {},
   stock: 0,
@@ -62,6 +64,8 @@ onMounted(() => {
         <p class="text-base font-normal leading-normal pb-3 pt-1 px-4">
           {{ product.description }}
         </p>
+
+        <p class="pb-3 pt-1 px-4 stock">осталось {{ product.stock }} шт.</p>
 
         <h2 class="text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">
           Детали

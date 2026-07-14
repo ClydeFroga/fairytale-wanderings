@@ -15,6 +15,20 @@
       "when": 1782296446758,
       "tag": "0001_majestic_shiva",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783942148427,
+      "tag": "0002_redundant_microchip",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783942167414,
+      "tag": "0003_dark_captain_britain",
+      "breakpoints": true
     }
   ]
 }

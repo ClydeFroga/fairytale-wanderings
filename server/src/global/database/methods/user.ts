@@ -14,6 +14,27 @@ export class UserMethods {
     await db.insert(users).values(data);
   }
 
+  // Создаёт пользователя по telegramId либо обновляет имя/username/телефон, если уже есть.
+  // Возвращает строку (нужен id для привязки к заказу).
+  static async upsertByTelegram(
+    data: Pick<INewUser, "telegramId" | "firstName" | "lastName" | "username" | "phone">,
+  ): Promise<IUser> {
+    const set: Partial<INewUser> = {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      username: data.username,
+    };
+    // Телефон обновляем только если он передан — чтобы не затирать сохранённый номер пустым.
+    if (data.phone) set.phone = data.phone;
+
+    const [row] = await db
+      .insert(users)
+      .values(data)
+      .onConflictDoUpdate({ target: users.telegramId, set })
+      .returning();
+    return row!;
+  }
+
   static async updatePhone(telegramId: number, phone: string): Promise<void> {
     await db.update(users).set({ phone }).where(eq(users.telegramId, telegramId));
   }

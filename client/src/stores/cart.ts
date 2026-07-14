@@ -36,6 +36,15 @@ export const useCartStore = defineStore('cart', () => {
     return insufficientProductIds.value.has(product._id)
   }
 
+  // Сколько данного товара в корзине. Ищем по _id: в разных местах приходят
+  // разные экземпляры объекта товара, а Map ключуется по ссылке.
+  function quantityOf(product: IProduct): number {
+    for (const [p, qty] of products.value.entries()) {
+      if (p._id === product._id) return qty
+    }
+    return 0
+  }
+
   function clearError(productId?: string) {
     orderError.value = ''
     if (productId) {
@@ -112,6 +121,7 @@ export const useCartStore = defineStore('cart', () => {
     orderError,
     insufficientProductIds,
     isInsufficient,
+    quantityOf,
     clearError,
     handleStockShortage,
     clear,

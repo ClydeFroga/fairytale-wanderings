@@ -1,16 +1,21 @@
 <template>
   <div class="pb-3">
-    <div class="flex border-b border-[#e7dbd0] px-4 gap-8">
-      <div
+    <div class="flex border-b border-[#e7dbd0] px-4 gap-8 overflow-x-auto">
+      <button
         v-for="category in categories"
-        class="flex flex-col items-center justify-center border-b-[#e88630] text-[#1b140e] pb-[13px] pt-4"
-        :class="{ 'border-b-[#e88630]': isActive(category.param) }"
+        :key="category.param"
+        type="button"
+        class="flex shrink-0 flex-col items-center justify-center border-b-2 pb-[13px] pt-4 transition-colors cursor-pointer"
+        :class="isActive(category.param) ? 'border-b-[#e88630]' : 'border-b-transparent'"
         @click="onClick(category.param)"
       >
-        <p class="text-[#1b140e] text-sm font-bold leading-normal tracking-[0.015em]">
+        <span
+          class="text-sm font-bold leading-normal tracking-[0.015em]"
+          :class="isActive(category.param) ? 'text-[#1b140e]' : 'text-[#97704e]'"
+        >
           {{ category.text }}
-        </p>
-      </div>
+        </span>
+      </button>
     </div>
   </div>
 </template>
@@ -19,14 +24,9 @@
 import type { PropType } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-const props = defineProps({
+defineProps({
   categories: {
-    type: Array as PropType<
-      {
-        param: string
-        text: string
-      }[]
-    >,
+    type: Array as PropType<{ param: string; text: string }[]>,
     required: true,
   },
 })
@@ -34,11 +34,12 @@ const props = defineProps({
 const route = useRoute()
 const router = useRouter()
 
-const isActive = (category: string) => {
-  return route.query.category === category
+// Пустой param — вкладка «Все»: активна, когда в query нет категории.
+const isActive = (param: string) => {
+  return (route.query.category ?? '') === param
 }
 
-const onClick = (category: string) => {
-  router.push({ query: { category } })
+const onClick = (param: string) => {
+  router.push({ query: param ? { category: param } : {} })
 }
 </script>

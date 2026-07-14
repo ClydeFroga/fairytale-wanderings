@@ -33,7 +33,9 @@ async function startViaTestcontainers(): Promise<PostgresInstance> {
   const container = await new PostgreSqlContainer("postgres:18.4-alpine").start();
   return {
     url: container.getConnectionUri(),
-    stop: () => container.stop(),
+    stop: async () => {
+      await container.stop();
+    },
   };
 }
 

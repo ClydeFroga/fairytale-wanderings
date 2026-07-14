@@ -7,11 +7,33 @@ import { runInTransaction } from '@global/database/transaction'
 import { InsufficientStockError, ProductNotFoundError } from '@global/errors'
 import { sendOwnerMail } from '@global/mail/mailer'
 import { buildOrderEmail } from '@global/mail/orderEmail'
+import { verifyInitData } from '@global/telegram/initData'
+import { UserMethods } from '@global/database/methods/user'
+import { notifyOrderCreated } from '@global/notify/orderNotify'
 
 const app = new Hono()
 
 app.post('/create', createOrderValidator, async (c) => {
   const input = c.req.valid('json')
+
+  // Канал заказа: если пришла валидная initData Mini App — это заказ из Telegram,
+  // привязываем к пользователю. Подделанная/протухшая initData → 401 (throw внутри).
+  let channel: 'web' | 'telegram' = 'web'
+  let userId: string | null = null
+  let notifyChatId: number | null = null
+  if (input.initData) {
+    const { user } = verifyInitData(input.initData)
+    const dbUser = await UserMethods.upsertByTelegram({
+      telegramId: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      username: user.username,
+      phone: input.contact, // сохраняем в профиль телефон, введённый в заказе
+    })
+    channel = 'telegram'
+    userId = dbUser.id
+    notifyChatId = user.id // = chat_id приватного чата, для уведомлений
+  }
 
   const ids = input.items.map((item) => item.productId)
   const prods = await ProductMethods.getByIds(ids)
@@ -53,11 +75,12 @@ app.post('/create', createOrderValidator, async (c) => {
 
     const created = await OrderMethods.create(
       {
+        userId,
         customerName: input.customerName,
         contact: input.contact,
         deliveryAddress: input.deliveryAddress,
         totalPrice,
-        channel: 'web',
+        channel,
       },
       tx,
     )
@@ -80,6 +103,12 @@ app.post('/create', createOrderValidator, async (c) => {
     await sendOwnerMail(buildOrderEmail(order, emailItems))
   } catch (err) {
     console.error('Не удалось отправить письмо о заказе:', err)
+  }
+
+  // Уведомление клиенту в Telegram (для заказов из Mini App). Best-effort:
+  // ошибки глушатся внутри sendCustomerMessage, заказ они не ломают.
+  if (notifyChatId !== null) {
+    await notifyOrderCreated(notifyChatId, order)
   }
 
   return c.json(order, 201)

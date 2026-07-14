@@ -8,26 +8,25 @@ const app = createServerApp()
 await DatabaseSingleton.getInstance().connect()
 
 async function startBot() {
+  const token = process.env.BOT_TOKEN
+  if (!token) {
+    console.warn('BOT_TOKEN не задан — Telegram-бот не запущен')
+    return
+  }
+
   try {
-    console.log('Запуск приложения...')
-
-    const bot = new Bot(process.env.BOT_TOKEN || '')
-
+    const bot = new Bot(token)
     await bot.start()
 
     process.once('SIGINT', () => bot.stop('SIGINT'))
     process.once('SIGTERM', () => bot.stop('SIGTERM'))
-
-    console.log('Приложение полностью запущено и готово к работе!')
   } catch (error) {
-    console.error('Критическая ошибка при запуске приложения:', error)
-    process.exit(1)
+    // Ошибка бота не должна ронять HTTP-API — просто логируем.
+    console.error('Не удалось запустить Telegram-бота:', error)
   }
 }
 
-// startBot().catch((error) => {
-//   console.error("Необработанная ошибка при запуске:", error);
-// });
+startBot()
 
 app.use(
   '/images/*',

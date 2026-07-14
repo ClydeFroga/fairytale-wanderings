@@ -1,22 +1,35 @@
-import { and, eq, gte, inArray, sql, desc, asc } from 'drizzle-orm'
+import { and, eq, gte, inArray, sql, desc, asc, getTableColumns } from 'drizzle-orm'
 import { db, type DB } from '../DatabaseSingleton'
-import { products } from '../shema'
+import { products, categories } from '../shema'
 import type { IProduct, INewProduct } from '../shema'
-import type { ProductListFilters } from '../types'
+import type { ProductListFilters, ProductView } from '../types'
 import { buildProductListConditions } from '../filters/product'
 
+// Проекция товара с присоединённым именем/slug категории (для витрины).
+const productView = {
+  ...getTableColumns(products),
+  category: categories.name,
+  categorySlug: categories.slug,
+}
+
 export class ProductMethods {
-  static getList(filters?: ProductListFilters): Promise<IProduct[]> {
+  static getList(filters?: ProductListFilters): Promise<ProductView[]> {
     const conditions = buildProductListConditions(filters)
     return db
-      .select()
+      .select(productView)
       .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
       .where(and(...conditions))
       .orderBy(desc(products.stock), asc(products.name))
   }
 
-  static async getById(id: string): Promise<IProduct | null> {
-    const [row] = await db.select().from(products).where(eq(products._id, id)).limit(1)
+  static async getById(id: string): Promise<ProductView | null> {
+    const [row] = await db
+      .select(productView)
+      .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(eq(products._id, id))
+      .limit(1)
     return row ?? null
   }
 
@@ -48,10 +61,5 @@ export class ProductMethods {
       .where(and(eq(products._id, id), gte(products.stock, qty)))
       .returning({ stock: products.stock })
     return res.length > 0
-  }
-
-  static async getCategories(): Promise<string[]> {
-    const categories = await db.select({ category: products.category }).from(products)
-    return categories.map((category) => category.category)
   }
 }
