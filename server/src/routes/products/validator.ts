@@ -28,6 +28,7 @@ export const createProductValidator = zValidator(
     description: z.string(),
     categoryId: z.string(),
     isActive: z.string().optional(),
+    stock: z.string().optional(),
     image: z.instanceof(File).optional(),
   }),
 );
@@ -40,6 +41,7 @@ export const updateProductValidator = zValidator(
     description: z.string().optional(),
     categoryId: z.string().optional(),
     isActive: z.string().optional(),
+    stock: z.string().optional(),
     image: z.instanceof(File).optional(),
   }),
 );

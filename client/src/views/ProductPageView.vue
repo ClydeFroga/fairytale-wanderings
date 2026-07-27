@@ -1,9 +1,9 @@
 <script lang="ts" setup>
 import Header from '@/components/global/Header.vue'
-import type { IProduct } from '@/components/product/IProduct'
-import type { PropType } from 'vue'
+import type { IProduct } from '@/types/product'
 import { onMounted, ref, type Ref } from 'vue'
-import { ROOT_URL } from '@/config'
+import { useRoute } from 'vue-router'
+import { getProduct } from '@/api/products'
 import AddToBusketButton from '@/components/global/AddToBusketButton.vue'
 import Gallery from '@/components/global/Gallery.vue'
 
@@ -21,21 +21,20 @@ const product: Ref<IProduct> = ref({
   stock: 0,
 })
 
-const props = defineProps({
-  product: {
-    type: Object as PropType<IProduct>,
-    required: false,
-  },
-})
+const props = defineProps<{ product?: IProduct }>()
 
-onMounted(() => {
+const route = useRoute()
+
+onMounted(async () => {
   if (props.product) {
     product.value = props.product
-  } else {
-    const productId = window.location.pathname.split('/').pop()
-    fetch(`${ROOT_URL}/products/${productId}`)
-      .then((res) => res.json())
-      .then((data) => (product.value = data))
+    return
+  }
+
+  try {
+    product.value = await getProduct(String(route.params.id))
+  } catch (error) {
+    console.error(error)
   }
 })
 </script>

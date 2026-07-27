@@ -20,10 +20,10 @@ const props = withDefaults(
 )
 
 const inputClass = computed(() => [
-  'form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl focus:outline-0 focus:ring-0 bg-[#fcfaf8] h-14 placeholder:text-[#97704e] p-[15px] text-base font-normal leading-normal',
+  'form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl focus:outline-0 focus:ring-0 bg-(--color-background) h-14 placeholder:text-(--vt-c-text-light-2) p-[15px] text-base font-normal leading-normal',
   props.hasError
     ? 'border border-red-500 focus:border-red-500'
-    : 'border border-[#e7dbd0] focus:border-[#e7dbd0]',
+    : 'border border-(--vt-c-divider-light-1) focus:border-(--vt-c-divider-light-1)',
 ])
 </script>
 

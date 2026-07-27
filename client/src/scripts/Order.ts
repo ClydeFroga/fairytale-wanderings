@@ -1,15 +1,15 @@
-import type { IProduct } from '@/components/product/IProduct'
+import type { CartItem } from '@/stores/cart'
 import { createOrder } from '@/api/orders'
 import { getInitData } from '@/scripts/telegram'
 
 export class Order {
-  products: Map<IProduct, number>
+  items: CartItem[]
   address: string
   name: string
   phone: string
 
-  constructor(products: Map<IProduct, number>, address: string, name: string, phone: string) {
-    this.products = products
+  constructor(items: CartItem[], address: string, name: string, phone: string) {
+    this.items = items
     this.address = address
     this.name = name
     this.phone = phone
@@ -17,7 +17,7 @@ export class Order {
 
   send() {
     return createOrder({
-      items: Array.from(this.products.entries()).map(([product, quantity]) => ({
+      items: this.items.map(({ product, quantity }) => ({
         productId: product._id,
         quantity,
       })),

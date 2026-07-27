@@ -1,12 +1,7 @@
 @import 'tailwindcss';
 @import './fonts.css';
 @import './base.css';
-
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  font-weight: normal;
-}
+@import './primary-button.css';
 
 a {
   text-decoration: none;

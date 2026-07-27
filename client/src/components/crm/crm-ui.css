@@ -1,0 +1,158 @@
+/* Общие элементы CRM (кнопки, поля, панели). Не scoped — используется во всех
+   компонентах CRM. Подключается один раз в CRMView.vue. */
+
+.crm-panel {
+  background: #faf6ee;
+  border: 1px solid rgba(122, 92, 58, 0.16);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 16px 36px -24px rgba(74, 52, 30, 0.45);
+}
+
+.crm-h1 {
+  margin: 0;
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 30px;
+  color: #2e2113;
+}
+.crm-subtitle {
+  margin: 5px 0 0;
+  font-size: 14px;
+  color: #8a7458;
+}
+
+/* Кнопки */
+.crm-btn {
+  appearance: none;
+  border: 1px solid rgba(120, 42, 20, 0.35);
+  border-radius: 11px;
+  padding: 11px 18px;
+  cursor: pointer;
+  background: linear-gradient(180deg, #b8543a 0%, #a8492b 100%);
+  color: #fdf3ec;
+  font: 600 14px 'Spline Sans';
+  letter-spacing: 0.01em;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 6px 16px -8px rgba(140, 58, 30, 0.5);
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    filter 0.16s ease;
+  white-space: nowrap;
+}
+.crm-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px -8px rgba(140, 58, 30, 0.55);
+  filter: brightness(0.92);
+}
+.crm-btn:active {
+  transform: translateY(0);
+  filter: brightness(0.85);
+}
+.crm-btn:disabled {
+  filter: none;
+  background: #d8cab2;
+  color: #a8967a;
+  box-shadow: none;
+  cursor: not-allowed;
+  border: 1px solid rgba(122, 92, 58, 0.2);
+  transform: none;
+}
+
+.crm-btn-sm {
+  padding: 9px 15px;
+  font-size: 13px;
+}
+
+.crm-btn-ghost {
+  appearance: none;
+  border: 1px solid rgba(122, 92, 58, 0.28);
+  border-radius: 11px;
+  padding: 11px 18px;
+  cursor: pointer;
+  background: transparent;
+  color: #5f4d38;
+  font: 500 14px 'Spline Sans';
+  transition: border-color 0.15s ease;
+}
+.crm-btn-ghost:hover {
+  border-color: rgba(122, 92, 58, 0.5);
+}
+
+.crm-btn-danger {
+  appearance: none;
+  border: 1px solid rgba(140, 40, 25, 0.5);
+  border-radius: 11px;
+  padding: 11px 18px;
+  cursor: pointer;
+  background: #c0503a;
+  color: #fdf3ec;
+  font: 600 14px 'Spline Sans';
+  letter-spacing: 0.01em;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease;
+  white-space: nowrap;
+}
+.crm-btn-danger:hover {
+  background: #a83a26;
+  transform: translateY(-1px);
+}
+
+.crm-icon-btn {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  appearance: none;
+  border: 1px solid rgba(122, 92, 58, 0.24);
+  border-radius: 9px;
+  background: #faf6ee;
+  color: #7a5c3a;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    border-color 0.14s ease,
+    color 0.14s ease;
+}
+.crm-icon-btn:hover {
+  border-color: rgba(168, 73, 43, 0.5);
+  color: #8f3c22;
+}
+.crm-icon-btn.danger:hover {
+  border-color: #c0503a;
+  color: #c0503a;
+}
+
+/* Поля ввода */
+.crm-input {
+  width: 100%;
+  box-sizing: border-box;
+  appearance: none;
+  border: 1px solid rgba(122, 92, 58, 0.28);
+  border-radius: 10px;
+  padding: 11px 13px;
+  background: #fdfaf3;
+  color: #33271a;
+  font: 400 14px 'Spline Sans';
+  outline: none;
+  transition:
+    border-color 0.14s ease,
+    box-shadow 0.14s ease;
+  resize: vertical;
+}
+.crm-input:focus {
+  border-color: rgba(168, 73, 43, 0.6);
+  box-shadow: 0 0 0 3px rgba(168, 73, 43, 0.13);
+}
+
+.crm-label {
+  font: 500 12px 'Spline Sans';
+  letter-spacing: 0.02em;
+  color: #6b5942;
+}

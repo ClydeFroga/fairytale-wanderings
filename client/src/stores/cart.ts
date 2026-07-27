@@ -1,17 +1,26 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import type { IProduct } from '@/components/product/IProduct'
+import type { IProduct } from '@/types/product'
 import type { StockShortage } from '@/api/orders'
 import { getProduct } from '@/api/products'
 
+export interface CartItem {
+  product: IProduct
+  quantity: number
+}
+
 export const useCartStore = defineStore('cart', () => {
-  const products = ref<Map<IProduct, number>>(new Map())
+  // Ключуем по _id, а не по объекту: в разных местах приходят разные экземпляры
+  // товара (из списка, со страницы товара, после перезагрузки остатков).
+  const entriesById = ref<Map<string, CartItem>>(new Map())
   const address = ref('')
   const name = ref('')
   const phone = ref('')
   const showValidationErrors = ref(false)
   const orderError = ref('')
   const insufficientProductIds = ref<Set<string>>(new Set())
+
+  const items = computed(() => Array.from(entriesById.value.values()))
 
   const isAddressValid = computed(() => address.value.trim().length > 0)
   const isNameValid = computed(() => name.value.trim().length > 0)
@@ -20,29 +29,20 @@ export const useCartStore = defineStore('cart', () => {
     () => isAddressValid.value && isNameValid.value && isPhoneValid.value,
   )
 
-  const totalQuantity = computed(() => {
-    return Array.from(products.value.values()).reduce((acc, quantity) => {
-      return acc + quantity
-    }, 0)
-  })
+  const totalQuantity = computed(() =>
+    items.value.reduce((acc, { quantity }) => acc + quantity, 0),
+  )
 
-  const totalPrice = computed(() => {
-    return Array.from(products.value.entries()).reduce((acc, [product, quantity]) => {
-      return acc + product.price * quantity
-    }, 0)
-  })
+  const totalPrice = computed(() =>
+    items.value.reduce((acc, { product, quantity }) => acc + product.price * quantity, 0),
+  )
 
   function isInsufficient(product: IProduct) {
     return insufficientProductIds.value.has(product._id)
   }
 
-  // Сколько данного товара в корзине. Ищем по _id: в разных местах приходят
-  // разные экземпляры объекта товара, а Map ключуется по ссылке.
   function quantityOf(product: IProduct): number {
-    for (const [p, qty] of products.value.entries()) {
-      if (p._id === product._id) return qty
-    }
-    return 0
+    return entriesById.value.get(product._id)?.quantity ?? 0
   }
 
   function clearError(productId?: string) {
@@ -55,34 +55,34 @@ export const useCartStore = defineStore('cart', () => {
   }
 
   function addProduct(product: IProduct) {
-    products.value.set(product, (products.value.get(product) || 0) + 1)
+    const existing = entriesById.value.get(product._id)
+    if (existing) {
+      existing.quantity += 1
+    } else {
+      entriesById.value.set(product._id, { product, quantity: 1 })
+    }
     clearError(product._id)
   }
 
   function removeProduct(product: IProduct) {
-    products.value.set(product, (products.value.get(product) || 0) - 1)
-    if (products.value.get(product) === 0) {
-      products.value.delete(product)
+    const existing = entriesById.value.get(product._id)
+    if (!existing) return
+    existing.quantity -= 1
+    if (existing.quantity <= 0) {
+      entriesById.value.delete(product._id)
     }
     clearError(product._id)
   }
 
   // Перезагружаем товары корзины (остаток мог измениться) и подсвечиваем нехватки.
   async function handleStockShortage(shortages: StockShortage[]) {
-    const quantitiesById = new Map(
-      Array.from(products.value.entries()).map(([product, quantity]) => [product._id, quantity]),
-    )
-
     const fresh = await Promise.all(
-      Array.from(quantitiesById.keys()).map((id) => getProduct(id)),
+      Array.from(entriesById.value.keys()).map((id) => getProduct(id)),
     )
-
-    const next = new Map<IProduct, number>()
     for (const product of fresh) {
-      const quantity = quantitiesById.get(product._id)
-      if (quantity !== undefined) next.set(product, quantity)
+      const existing = entriesById.value.get(product._id)
+      if (existing) existing.product = product
     }
-    products.value = next
 
     insufficientProductIds.value = new Set(shortages.map((s) => s.productId))
     orderError.value = 'Некоторых товаров не хватает на складе. Уменьшите количество и попробуйте снова.'
@@ -94,7 +94,7 @@ export const useCartStore = defineStore('cart', () => {
   }
 
   function clear() {
-    products.value = new Map()
+    entriesById.value = new Map()
     address.value = ''
     name.value = ''
     phone.value = ''
@@ -104,7 +104,7 @@ export const useCartStore = defineStore('cart', () => {
   }
 
   return {
-    products,
+    items,
     addProduct,
     removeProduct,
     totalQuantity,

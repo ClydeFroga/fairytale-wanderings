@@ -31,13 +31,16 @@ export class ApiClient {
   async request(path: string, options: RequestOptions = {}) {
     const { method = 'GET', body, headers } = options
 
+    // FormData отправляем как есть — Content-Type (с boundary) выставит браузер.
+    const isFormData = body instanceof FormData
+
     const finalHeaders: Record<string, string> = { ...headers }
-    if (body !== undefined) finalHeaders['Content-Type'] = 'application/json'
+    if (body !== undefined && !isFormData) finalHeaders['Content-Type'] = 'application/json'
 
     return fetch(this.baseUrl + path, {
       method,
       headers: Object.keys(finalHeaders).length ? finalHeaders : undefined,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
     })
   }
 

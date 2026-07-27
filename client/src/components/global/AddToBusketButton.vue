@@ -1,22 +1,12 @@
 <script setup lang="ts">
-import type { IProduct } from '@/components/product/IProduct'
-import { computed, type PropType } from 'vue'
+import type { IProduct } from '@/types/product'
+import { computed } from 'vue'
 import { useCartStore } from '@/stores/cart'
 
-const props = defineProps({
-  text: {
-    type: String,
-    required: true,
-  },
-  product: {
-    type: Object as PropType<IProduct>,
-    required: true,
-  },
-  disabled: {
-    type: Boolean,
-    default: false,
-  },
-})
+const props = withDefaults(
+  defineProps<{ text: string; product: IProduct; disabled?: boolean }>(),
+  { disabled: false },
+)
 
 const cartStore = useCartStore()
 
@@ -33,7 +23,7 @@ const qtyLabel = computed(() =>
   <button
     v-if="quantity === 0"
     type="button"
-    class="add-btn max-w-[480px] flex-1"
+    class="btn-primary max-w-[480px] flex-1"
     :disabled="disabled"
     @click="cartStore.addProduct(product)"
   >
@@ -63,54 +53,6 @@ const qtyLabel = computed(() =>
 </template>
 
 <style scoped>
-.add-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-width: 84px;
-  height: 48px;
-  padding: 0 20px;
-  appearance: none;
-  border: 1px solid rgba(120, 42, 20, 0.35);
-  border-radius: 11px;
-  background: linear-gradient(180deg, #b8543a 0%, #a8492b 100%);
-  color: #fdf3ec;
-  font-weight: 600;
-  font-size: 15px;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.18) inset,
-    0 6px 16px -8px rgba(140, 58, 30, 0.5);
-  transition:
-    transform 0.16s ease,
-    box-shadow 0.16s ease,
-    background 0.16s ease,
-    border-color 0.16s ease;
-}
-
-.add-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  background: #a8492b;
-  box-shadow: 0 10px 22px -8px rgba(140, 58, 30, 0.55);
-}
-
-.add-btn:active:not(:disabled) {
-  transform: scale(0.98);
-}
-
-.add-btn:focus-visible {
-  outline: 2px solid rgba(168, 73, 43, 0.4);
-  outline-offset: 3px;
-}
-
-.add-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-  box-shadow: none;
-}
-
 .stepper {
   display: flex;
   align-items: center;
@@ -134,7 +76,7 @@ const qtyLabel = computed(() =>
   border: 1px solid rgba(120, 42, 20, 0.28);
   border-radius: 8px;
   background: #faf3e8;
-  color: #8f3c22;
+  color: var(--brand-accent-strong);
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
@@ -162,6 +104,6 @@ const qtyLabel = computed(() =>
   font-family: 'Noto Serif', serif;
   font-weight: 600;
   font-size: 16px;
-  color: #33271a;
+  color: var(--brand-ink);
 }
 </style>

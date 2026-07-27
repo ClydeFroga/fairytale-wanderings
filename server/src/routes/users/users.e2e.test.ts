@@ -9,7 +9,7 @@ process.env.BOT_TOKEN = BOT_TOKEN;
 
 const app = createApp();
 
-type MeResponse = { telegramId: number; firstName: string; lastName: string | null; phone: string | null };
+type MeResponse = { telegramId: number; firstName: string; lastName: string | null; phone: string | null; isAdmin: boolean };
 
 function meRequest(initData: string) {
   return app.fetch(

@@ -1,6 +1,6 @@
 <template>
   <div class="pb-3">
-    <div class="flex border-b border-[#e7dbd0] px-4 gap-8 overflow-x-auto">
+    <div class="flex border-b border-(--vt-c-divider-light-1) px-4 gap-8 overflow-x-auto">
       <button
         v-for="category in categories"
         :key="category.param"
@@ -11,7 +11,7 @@
       >
         <span
           class="text-sm font-bold leading-normal tracking-[0.015em]"
-          :class="isActive(category.param) ? 'text-[#1b140e]' : 'text-[#97704e]'"
+          :class="isActive(category.param) ? 'text-(--vt-c-black)' : 'text-(--vt-c-text-light-2)'"
         >
           {{ category.text }}
         </span>
@@ -21,15 +21,9 @@
 </template>
 
 <script setup lang="ts">
-import type { PropType } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-defineProps({
-  categories: {
-    type: Array as PropType<{ param: string; text: string }[]>,
-    required: true,
-  },
-})
+defineProps<{ categories: { param: string; text: string }[] }>()
 
 const route = useRoute()
 const router = useRouter()

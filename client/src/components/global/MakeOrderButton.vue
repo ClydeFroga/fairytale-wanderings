@@ -7,12 +7,7 @@ import { Order } from '@/scripts/Order'
 import { ApiError } from '@/api/client'
 import type { StockShortage } from '@/api/orders'
 
-defineProps({
-  text: {
-    type: String,
-    required: true,
-  },
-})
+defineProps<{ text: string }>()
 
 const cartStore = useCartStore()
 const router = useRouter()
@@ -24,7 +19,7 @@ const makeOrder = async () => {
     return
   }
 
-  const order = new Order(cartStore.products, cartStore.address, cartStore.name, cartStore.phone)
+  const order = new Order(cartStore.items, cartStore.address, cartStore.name, cartStore.phone)
 
   try {
     await order.send()

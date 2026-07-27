@@ -18,6 +18,7 @@ app.get("/me", async (c) => {
     firstName: dbUser?.firstName ?? user.firstName,
     lastName: dbUser?.lastName ?? user.lastName ?? null,
     phone: dbUser?.phone ?? null,
+    isAdmin: dbUser?.isAdmin ?? false,
   });
 });
 

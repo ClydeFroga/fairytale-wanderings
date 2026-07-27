@@ -1,13 +1,8 @@
 <script setup lang="ts">
-import type { IProduct } from './IProduct'
-import { computed, type PropType } from 'vue'
+import type { IProduct } from '@/types/product'
+import { computed } from 'vue'
 
-const props = defineProps({
-  product: {
-    type: Object as PropType<IProduct>,
-    required: true,
-  },
-})
+const props = defineProps<{ product: IProduct }>()
 
 const priceLabel = computed(() => `${props.product.price.toLocaleString('ru-RU')} ₽`)
 const stockLabel = computed(() =>
@@ -67,13 +62,13 @@ const stockLabel = computed(() =>
   font-weight: 500;
   font-size: 18px;
   line-height: 1.2;
-  color: #33271a;
+  color: var(--brand-ink);
 }
 
 .price {
   font-family: 'Noto Serif', serif;
   font-weight: 500;
   font-size: 18px;
-  color: #33271a;
+  color: var(--brand-ink);
 }
 </style>

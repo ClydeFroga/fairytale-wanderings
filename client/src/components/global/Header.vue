@@ -2,16 +2,8 @@
 import ShoppingBag from '@/assets/vector/ShoppingBag.vue'
 import ArrowLeft from '@/assets/vector/ArrowLeft.vue'
 import { useCartStore } from '@/stores/cart'
-const props = defineProps({
-  backButton: {
-    type: Boolean,
-    required: false,
-    default: true,
-  },
-  BackLink: {
-    type: String,
-    required: true,
-  },
+const props = withDefaults(defineProps<{ backButton?: boolean; BackLink: string }>(), {
+  backButton: true,
 })
 
 const cartStore = useCartStore()

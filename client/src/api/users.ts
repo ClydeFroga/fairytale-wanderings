@@ -6,6 +6,7 @@ export type MeProfile = {
   firstName: string
   lastName: string | null
   phone: string | null
+  isAdmin: boolean
 }
 
 /** Профиль текущего Telegram-пользователя. null, если мы не внутри Телеграма. */

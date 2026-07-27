@@ -35,7 +35,7 @@ onMounted(async () => {
         Корзина
       </h2>
       <div
-        v-for="[product, quantity] of cartStore.products.entries()"
+        v-for="{ product, quantity } in cartStore.items"
         :key="product._id"
         class="flex gap-4 justify-between"
         :class="{ 'bg-red-50 rounded-lg': cartStore.isInsufficient(product) }"
@@ -49,10 +49,10 @@ onMounted(async () => {
           ></div>
           <div class="flex flex-1 flex-col justify-center">
             <p class="text-base font-medium leading-normal">{{ product.name }}</p>
-            <p class="text-[#97704e] text-sm font-normal leading-normal">
+            <p class="text-(--vt-c-text-light-2) text-sm font-normal leading-normal">
               {{ product.category }}
             </p>
-            <p class="text-[#97704e] text-sm font-normal leading-normal">Кол-во: {{ quantity }}</p>
+            <p class="text-(--vt-c-text-light-2) text-sm font-normal leading-normal">Кол-во: {{ quantity }}</p>
             <p
               v-if="cartStore.isInsufficient(product)"
               class="text-red-600 text-sm font-medium leading-normal"

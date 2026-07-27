@@ -5,7 +5,7 @@ import Categories from '@/components/global/Categories.vue'
 import ProductMenu from '@/components/product/ProductMenu.vue'
 import { ref, onMounted, computed, type Ref } from 'vue'
 import { useRoute } from 'vue-router'
-import type { IProduct } from '@/components/product/IProduct'
+import type { IProduct } from '@/types/product'
 import { getProducts } from '@/api/products'
 import { getCategories, type ICategory } from '@/api/categories'
 
@@ -33,7 +33,7 @@ onMounted(async () => {
 
 <template>
   <main
-    class="relative flex size-full min-h-screen flex-col bg-[#fcfaf8] justify-between group/design-root overflow-x-hidden"
+    class="relative flex size-full min-h-screen flex-col bg-(--color-background) justify-between group/design-root overflow-x-hidden"
   >
     <div>
       <Header :backButton="false" :BackLink="'/'" />
