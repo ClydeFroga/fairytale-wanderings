@@ -46,7 +46,8 @@ export function buildOrderEmail(order: IOrder, items: OrderEmailItem[]): MailMes
     `Итого: ${formatPrice(order.totalPrice)}`,
     "",
     `Имя: ${order.customerName || "—"}`,
-    `Контакт: ${order.contact || "—"}`,
+    `Телефон: ${order.contact || "—"}`,
+    `Почта: ${order.email || "—"}`,
     `Доставка: ${order.deliveryAddress || "—"}`,
     `Канал: ${CHANNEL_LABEL[order.channel] ?? order.channel}`,
     `Номер заказа: ${order.id}`,
@@ -80,7 +81,8 @@ export function buildOrderEmail(order: IOrder, items: OrderEmailItem[]): MailMes
         Итого: ${formatPrice(order.totalPrice)}
       </p>
       <p style="margin:0 0 4px;"><b>Имя:</b> ${escapeHtml(order.customerName || "—")}</p>
-      <p style="margin:0 0 4px;"><b>Контакт:</b> ${escapeHtml(order.contact || "—")}</p>
+      <p style="margin:0 0 4px;"><b>Телефон:</b> ${escapeHtml(order.contact || "—")}</p>
+      <p style="margin:0 0 4px;"><b>Почта:</b> ${escapeHtml(order.email || "—")}</p>
       <p style="margin:0 0 4px;"><b>Доставка:</b> ${escapeHtml(order.deliveryAddress || "—")}</p>
       <p style="margin:0 0 4px;"><b>Канал:</b> ${CHANNEL_LABEL[order.channel] ?? order.channel}</p>
       <p style="margin:16px 0 0;color:#97704e;font-size:12px;">Номер заказа: ${order.id}</p>

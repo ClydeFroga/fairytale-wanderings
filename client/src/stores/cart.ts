@@ -16,6 +16,7 @@ export const useCartStore = defineStore('cart', () => {
   const address = ref('')
   const name = ref('')
   const phone = ref('')
+  const email = ref('')
   const showValidationErrors = ref(false)
   const orderError = ref('')
   const insufficientProductIds = ref<Set<string>>(new Set())
@@ -25,8 +26,12 @@ export const useCartStore = defineStore('cart', () => {
   const isAddressValid = computed(() => address.value.trim().length > 0)
   const isNameValid = computed(() => name.value.trim().length > 0)
   const isPhoneValid = computed(() => /^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$/.test(phone.value))
+  // Почта необязательна (телефон уже есть), но заполненную проверяем на формат.
+  const isEmailValid = computed(
+    () => email.value.trim() === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()),
+  )
   const isOrderFormValid = computed(
-    () => isAddressValid.value && isNameValid.value && isPhoneValid.value,
+    () => isAddressValid.value && isNameValid.value && isPhoneValid.value && isEmailValid.value,
   )
 
   const totalQuantity = computed(() =>
@@ -98,6 +103,7 @@ export const useCartStore = defineStore('cart', () => {
     address.value = ''
     name.value = ''
     phone.value = ''
+    email.value = ''
     showValidationErrors.value = false
     orderError.value = ''
     insufficientProductIds.value = new Set()
@@ -112,10 +118,12 @@ export const useCartStore = defineStore('cart', () => {
     address,
     name,
     phone,
+    email,
     showValidationErrors,
     isAddressValid,
     isNameValid,
     isPhoneValid,
+    isEmailValid,
     isOrderFormValid,
     validateOrderForm,
     orderError,
