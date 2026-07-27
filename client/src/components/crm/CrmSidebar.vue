@@ -1,7 +1,36 @@
-<script setup lang="ts">export type CrmView = 'products' | 'categories' | 'orders'
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import { getMe, type MeProfile } from '@/api/users'
+
+export type CrmView = 'products' | 'categories' | 'orders'
 
 defineProps<{ view: CrmView }>()
 const emit = defineEmits<{ select: [view: CrmView] }>()
+
+const me = ref<MeProfile | null>(null)
+
+onMounted(async () => {
+  try {
+    me.value = await getMe()
+  } catch {
+    // без initData (dev в браузере) профиль недоступен
+  }
+})
+
+const displayName = computed(() => {
+  if (!me.value) return 'Администратор'
+  const parts = [me.value.firstName, me.value.lastName].filter(Boolean)
+  return parts.join(' ') || 'Администратор'
+})
+
+const initials = computed(() => {
+  if (!me.value) return 'А'
+  const first = me.value.firstName?.trim()
+  const last = me.value.lastName?.trim()
+  if (first && last) return (first[0] + last[0]).toUpperCase()
+  if (first) return first.slice(0, 2).toUpperCase()
+  return 'А'
+})
 
 const nav: { key: CrmView; label: string; icon: string }[] = [
   { key: 'products', label: 'Товары', icon: '◈' },
@@ -12,7 +41,7 @@ const nav: { key: CrmView; label: string; icon: string }[] = [
 
 <template>
   <aside class="sidebar">
-    <div class="brand">Сказка Странствий</div>
+    <RouterLink to="/" class="brand">Сказка Странствий</RouterLink>
     <div class="brand-sub">панель управления</div>
 
     <button
@@ -23,13 +52,14 @@ const nav: { key: CrmView; label: string; icon: string }[] = [
       :class="{ active: view === n.key }"
       @click="emit('select', n.key)"
     >
-      <span class="nav-icon">{{ n.icon }}</span>{{ n.label }}
+      <span class="nav-icon">{{ n.icon }}</span
+      >{{ n.label }}
     </button>
 
     <div class="user">
-      <div class="avatar">МК</div>
+      <div class="avatar">{{ initials }}</div>
       <div class="user-meta">
-        <div class="user-name">Мария Крафт</div>
+        <div class="user-name">{{ displayName }}</div>
         <div class="user-role">владелец</div>
       </div>
     </div>
@@ -57,9 +87,19 @@ const nav: { key: CrmView; label: string; icon: string }[] = [
   line-height: 1;
   color: #f4d9b8;
   padding: 6px 10px 4px;
+  text-decoration: none;
+  display: block;
+  border-radius: 8px;
+  transition: color 0.15s ease;
+}
+.brand:hover {
+  color: #fce8cc;
 }
 .brand-sub {
-  font: 500 10px/1 ui-monospace, Menlo, monospace;
+  font:
+    500 10px/1 ui-monospace,
+    Menlo,
+    monospace;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: #a98d68;

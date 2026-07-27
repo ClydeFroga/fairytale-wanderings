@@ -5,8 +5,8 @@ import { resetDatabase } from "../../test/e2e/db";
 import { ProductMethods } from "@global/database/methods/product";
 import { UserMethods } from "@global/database/methods/user";
 import type { IOrder, IProduct } from "@global/database/shema";
+import { TEST_BOT_TOKEN as BOT_TOKEN, adminHeaders, customerHeaders } from "../../test/e2e/auth";
 
-const BOT_TOKEN = "123456:TEST_BOT_TOKEN";
 process.env.BOT_TOKEN = BOT_TOKEN;
 
 const app = createApp();
@@ -201,5 +201,168 @@ describe("Orders E2E", () => {
     expect(res.status).toBe(401);
     // остаток не тронут
     expect((await ProductMethods.getById(product._id))?.stock).toBe(product.stock);
+  });
+
+  // --- CRM: список и статусный флоу ---
+
+  async function makeOrder(quantity = 1, extra: Record<string, unknown> = {}): Promise<IOrder> {
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+    const res = await app.fetch(
+      new Request("http://localhost/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ productId: product._id, quantity }],
+          customerName: "Тест",
+          contact: "+79990001122",
+          ...extra,
+        }),
+      }),
+    );
+    return (await res.json()) as IOrder;
+  }
+
+  function setStatus(id: string, status: string, headers = adminHeaders()) {
+    return app.fetch(
+      new Request(`http://localhost/orders/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: JSON.stringify({ status }),
+      }),
+    );
+  }
+
+  function getOrders(headers = adminHeaders()) {
+    return app.fetch(new Request("http://localhost/orders", { headers }));
+  }
+
+  it("POST /orders/create — новый заказ получает статус created", async () => {
+    const order = await makeOrder();
+    expect(order.status).toBe("created");
+  });
+
+  it("POST /orders/create — почта необязательна, но сохраняется и нормализуется", async () => {
+    const withoutEmail = await makeOrder();
+    expect(withoutEmail.email).toBeNull();
+
+    const withEmail = await makeOrder(1, { email: "  Anya@Example.COM " });
+    expect(withEmail.email).toBe("anya@example.com");
+  });
+
+  it("POST /orders/create — кривая почта отклоняется (400), заказ не создаётся", async () => {
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+    const res = await app.fetch(
+      new Request("http://localhost/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ productId: product._id, quantity: 1 }],
+          email: "не-почта",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect((await ProductMethods.getById(product._id))?.stock).toBe(product.stock);
+  });
+
+  it("GET /orders — отдаёт заказы с составом, новые сверху", async () => {
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+    const first = await makeOrder(1);
+    const second = await makeOrder(2);
+
+    const res = await getOrders();
+    const list = (await res.json()) as (IOrder & {
+      items: { productId: string | null; name: string; quantity: number; price: number }[];
+    })[];
+
+    expect(res.status).toBe(200);
+    expect(list).toHaveLength(2);
+    expect(list.map((o) => o.id)).toEqual([second.id, first.id]);
+    expect(list[0]!.items).toEqual([
+      { productId: product._id, name: product.name, quantity: 2, price: product.price },
+    ]);
+    // Плоские telegram*-поля из join наружу не отдаём — только собранный объект.
+    expect(list[0]).not.toHaveProperty("telegramId");
+    expect(list[0]).toHaveProperty("telegram", null); // веб-заказ — телеграма нет
+  });
+
+  it("GET /orders — у телеграм-заказа виден контакт покупателя", async () => {
+    const initData = sign(
+      { user: { id: 555010, first_name: "Аня", last_name: "П", username: "anya" } } as never,
+      BOT_TOKEN,
+      new Date(),
+    );
+    await makeOrder(1, { initData });
+
+    const list = (await (await getOrders()).json()) as { telegram: unknown }[];
+
+    expect(list[0]!.telegram).toEqual({ id: 555010, username: "anya", name: "Аня П" });
+  });
+
+  it("GET /orders — закрыт от посторонних (401 / 403)", async () => {
+    expect((await getOrders({})).status).toBe(401);
+    expect((await getOrders(customerHeaders())).status).toBe(403);
+  });
+
+  it("PATCH /orders/:id/status — ведёт заказ по цепочке и отвечает как список (с составом)", async () => {
+    const order = await makeOrder(2);
+
+    for (const status of ["paid", "assembled", "shipped", "completed"] as const) {
+      const res = await setStatus(order.id, status);
+      const updated = (await res.json()) as IOrder & { items: { quantity: number }[] };
+
+      expect(res.status).toBe(200);
+      expect(updated.status).toBe(status);
+      // Клиент подменяет строку списка этим ответом — форма должна совпадать.
+      expect(updated.items).toEqual([expect.objectContaining({ quantity: 2 })]);
+      expect(updated).toHaveProperty("telegram", null);
+      expect(updated).not.toHaveProperty("telegramId");
+    }
+  });
+
+  it("PATCH /orders/:id/status — назад и из завершённого нельзя (409)", async () => {
+    const order = await makeOrder();
+    await setStatus(order.id, "paid");
+
+    const back = await setStatus(order.id, "created");
+    const body = (await back.json()) as { code: string; details: { from: string; to: string } };
+    expect(back.status).toBe(409);
+    expect(body.code).toBe("INVALID_STATUS_TRANSITION");
+    expect(body.details).toEqual({ from: "paid", to: "created" });
+
+    await setStatus(order.id, "completed");
+    expect((await setStatus(order.id, "cancelled")).status).toBe(409);
+  });
+
+  it("PATCH /orders/:id/status — отмена возможна с середины цепочки", async () => {
+    const order = await makeOrder();
+    await setStatus(order.id, "paid");
+
+    const res = await setStatus(order.id, "cancelled");
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as IOrder).status).toBe("cancelled");
+
+    // из отменённого — уже никуда
+    expect((await setStatus(order.id, "assembled")).status).toBe(409);
+  });
+
+  it("PATCH /orders/:id/status — неизвестный статус (400) и неизвестный заказ (404)", async () => {
+    const order = await makeOrder();
+
+    expect((await setStatus(order.id, "delivered")).status).toBe(400);
+    expect(
+      (await setStatus("00000000-0000-4000-8000-000000000000", "paid")).status,
+    ).toBe(404);
+  });
+
+  it("PATCH /orders/:id/status — закрыт от посторонних (401 / 403)", async () => {
+    const order = await makeOrder();
+
+    expect((await setStatus(order.id, "paid", {})).status).toBe(401);
+    expect((await setStatus(order.id, "paid", customerHeaders())).status).toBe(403);
+
+    const [fresh] = (await (await getOrders()).json()) as IOrder[];
+    expect(fresh!.status).toBe("created");
   });
 });

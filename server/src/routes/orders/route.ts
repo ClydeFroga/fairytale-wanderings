@@ -1,17 +1,62 @@
 import { Hono } from 'hono'
-import { createOrderValidator } from './validator'
+import { createOrderValidator, updateOrderStatusValidator } from './validator'
 import { ProductMethods } from '@global/database/methods/product'
 import { OrderMethods } from '@global/database/methods/order'
 import { OrderItemMethods } from '@global/database/methods/orderItem'
 import { runInTransaction } from '@global/database/transaction'
-import { InsufficientStockError, ProductNotFoundError } from '@global/errors'
+import {
+  InsufficientStockError,
+  InvalidStatusTransitionError,
+  OrderNotFoundError,
+  ProductNotFoundError,
+} from '@global/errors'
 import { sendOwnerMail } from '@global/mail/mailer'
 import { buildOrderEmail } from '@global/mail/orderEmail'
 import { verifyInitData } from '@global/telegram/initData'
 import { UserMethods } from '@global/database/methods/user'
-import { notifyOrderCreated } from '@global/notify/orderNotify'
+import { notifyOrderCreated, notifyOrderStatus } from '@global/notify/orderNotify'
+import { requireAdmin } from '../../middleware/requireAdmin'
+import { buildOrderList } from './helpers'
+import { canTransition } from './statusFlow'
 
 const app = new Hono()
+
+// Список заказов для CRM: сам заказ + состав с названиями товаров.
+app.get('/', requireAdmin, async (c) => {
+  const orders = await OrderMethods.getList()
+  const items = await OrderItemMethods.getByOrderIds(orders.map((order) => order.id))
+
+  return c.json(buildOrderList(orders, items))
+})
+
+// Смена статуса из CRM. Разрешённые переходы — в statusFlow.ts.
+app.patch('/:id/status', requireAdmin, updateOrderStatusValidator, async (c) => {
+  const { id } = c.req.param()
+  const { status } = c.req.valid('json')
+
+  const current = await OrderMethods.getById(id)
+  if (!current) throw new OrderNotFoundError(id)
+  if (!canTransition(current.status, status)) {
+    throw new InvalidStatusTransitionError(current.status, status)
+  }
+
+  const updated = await OrderMethods.updateStatus(id, status)
+  if (!updated) throw new OrderNotFoundError(id)
+
+  // Уведомление клиенту — только для заказов из Telegram (у веб-гостя нет chat_id).
+  // Ошибки глушатся внутри, статус меняется в любом случае.
+  if (current.telegramId !== null) {
+    await notifyOrderStatus(current.telegramId, updated)
+  }
+
+  // Отдаём заказ в той же форме, что и список (с составом), чтобы клиент мог
+  // просто заменить строку в списке ответом.
+  const items = await OrderItemMethods.getByOrderIds([id])
+  // Телеграм-профиль берём из уже прочитанного заказа, свежие поля — из updated.
+  const [entry] = buildOrderList([{ ...current, ...updated }], items)
+
+  return c.json(entry)
+})
 
 app.post('/create', createOrderValidator, async (c) => {
   const input = c.req.valid('json')
@@ -78,9 +123,11 @@ app.post('/create', createOrderValidator, async (c) => {
         userId,
         customerName: input.customerName,
         contact: input.contact,
+        email: input.email,
         deliveryAddress: input.deliveryAddress,
         totalPrice,
         channel,
+        status: 'created',
       },
       tx,
     )

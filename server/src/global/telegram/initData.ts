@@ -25,6 +25,17 @@ type RawTelegramUser = {
 };
 
 /**
+ * Достаёт initData из заголовка `Authorization: tma <initData>`.
+ * Заголовка нет или он другого вида — значит личность не подтверждена (401).
+ */
+export function initDataFromHeader(authHeader: string | undefined): string {
+  if (!authHeader?.startsWith("tma ")) {
+    throw new InvalidInitDataError("Нет данных Telegram в заголовке");
+  }
+  return authHeader.slice(4);
+}
+
+/**
  * Проверяет подпись и свежесть initData Telegram Mini App по `BOT_TOKEN`.
  * Криптопроверка (HMAC + hash) — в библиотеке `@telegram-apps/init-data-node`.
  * После успешной проверки строка доверенная, поэтому разбираем её сами через

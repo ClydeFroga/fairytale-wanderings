@@ -1,11 +1,12 @@
 <script lang="ts" setup>
 import Header from '@/components/global/Header.vue'
 import type { IProduct } from '@/types/product'
-import { onMounted, ref, type Ref } from 'vue'
+import { computed, onMounted, ref, type Ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { getProduct } from '@/api/products'
 import AddToBusketButton from '@/components/global/AddToBusketButton.vue'
 import Gallery from '@/components/global/Gallery.vue'
+import { imageUrls } from '@/scripts/images'
 
 const product: Ref<IProduct> = ref({
   _id: '',
@@ -22,6 +23,9 @@ const product: Ref<IProduct> = ref({
 })
 
 const props = defineProps<{ product?: IProduct }>()
+
+// Пути из БД относительные — приводим к URL API (см. scripts/images).
+const gallery = computed(() => imageUrls(product.value.image))
 
 const route = useRoute()
 
@@ -48,7 +52,7 @@ onMounted(async () => {
       <div>
         <div class="grid grid-cols-[repeat(auto-fit,minmax(158px,1fr))] gap-3 p-4">
           <div class="flex flex-col gap-3 pb-3">
-            <Gallery :image="product.image" />
+            <Gallery :image="gallery" />
 
             <div>
               <p class="text-base font-medium leading-normal">

@@ -1,6 +1,5 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import { ROOT_URL } from '@/config'
 import {
   getProducts,
   createProduct as apiCreateProduct,
@@ -9,6 +8,7 @@ import {
   type ProductInput,
 } from '@/api/products'
 import type { IProduct } from '@/types/product'
+import { imageUrl } from '@/scripts/images'
 
 // Отображаемая модель товара в CRM (плоская, готовая к рендеру таблицы/формы).
 export type CrmProduct = {
@@ -23,7 +23,7 @@ export type CrmProduct = {
   detailsMap: Record<string, string> // исходный объект (для формы)
   hue: number
   description: string
-  image?: string // готовый URL картинки, если у товара она есть
+  images: string[] // пути картинок как их хранит БД (для показа — imageUrl())
 }
 
 export type DetailRow = { key: string; value: string }
@@ -37,8 +37,8 @@ export type ProductDraft = {
   categoryId: string
   details: DetailRow[]
   isActive: boolean
-  imageFile: File | null // новый файл картинки, если выбран
-  existingImage?: string // текущая картинка (URL) при редактировании
+  imageFiles: File[] // новые файлы картинок
+  existingImages: string[] // пути сохранённых картинок, которые остаются
 }
 
 // Палитра оттенков для плейсхолдер-обложек товаров.
@@ -47,14 +47,6 @@ export const HUES = [28, 92, 45, 200, 320, 15, 265, 60]
 // Полосатая заглушка вместо реальной картинки товара.
 export function swatch(hue: number): string {
   return `repeating-linear-gradient(45deg, oklch(0.86 0.03 ${hue}) 0 8px, oklch(0.81 0.035 ${hue}) 8px 16px)`
-}
-
-// Приводим относительный путь картинки (напр. "images/x.webp") к абсолютному URL
-// API; абсолютные URL (сид на picsum) оставляем как есть.
-function resolveImageUrl(src?: string): string | undefined {
-  if (!src) return undefined
-  if (/^https?:\/\//.test(src)) return src
-  return `${ROOT_URL}/${src.replace(/^\/+/, '')}`
 }
 
 // Детерминированный оттенок из id — чтобы товар без картинки получал стабильную
@@ -84,8 +76,13 @@ function fromApi(p: IProduct): CrmProduct {
     detailsMap: p.details ?? {},
     hue: hueFromId(p._id),
     description: p.description ?? '',
-    image: resolveImageUrl(p.image?.[0]),
+    images: p.image ?? [],
   }
+}
+
+/** Обложка товара для списка — первая картинка галереи. */
+export function coverUrl(product: CrmProduct): string | undefined {
+  return imageUrl(product.images[0])
 }
 
 // Черновик формы → тело запроса (details-строки → объект, числа из строк).
@@ -103,7 +100,8 @@ function draftToInput(draft: ProductDraft): ProductInput {
     isActive: draft.isActive,
     stock: parseInt(draft.stock, 10) || 0,
     details,
-    image: draft.imageFile,
+    images: draft.imageFiles,
+    existingImages: draft.existingImages,
   }
 }
 
@@ -116,8 +114,8 @@ export const useProductsStore = defineStore('products', () => {
     () => `${catalog.value.length} товаров · ${catalog.value.filter((p) => p.isActive).length} активных`,
   )
 
-  function countInCategory(name: string): number {
-    return catalog.value.filter((p) => p.category === name).length
+  function countInCategory(categoryId: string): number {
+    return catalog.value.filter((p) => p.categoryId === categoryId).length
   }
 
   // Загрузка списка товаров из БД. Вызывается при открытии CRM.
@@ -143,16 +141,14 @@ export const useProductsStore = defineStore('products', () => {
     await loadProducts()
   }
 
+  // Как и у категорий: удаление идёт из модалки, показать ошибку ей негде —
+  // кладём в error, панель отрисует его вместо списка с кнопкой «Повторить».
   async function deleteProduct(id: string) {
-    await apiDeleteProduct(id)
-    await loadProducts()
-  }
-
-  // Локально переводим товары удалённой категории в «Без категории» (демо-поведение,
-  // пока у категорий нет серверного CRUD). Вызывает categories store.
-  function detachCategory(name: string) {
-    for (const p of catalog.value) {
-      if (p.category === name) p.category = 'Без категории'
+    try {
+      await apiDeleteProduct(id)
+      await loadProducts()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Не удалось удалить товар'
     }
   }
 
@@ -165,6 +161,5 @@ export const useProductsStore = defineStore('products', () => {
     loadProducts,
     saveProduct,
     deleteProduct,
-    detachCategory,
   }
 })

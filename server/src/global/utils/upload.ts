@@ -2,6 +2,7 @@ import fs from "fs";
 import sharp from "sharp";
 import path from "path";
 import crypto from "crypto";
+import { InvalidImageError } from "@global/errors";
 
 export class Upload {
   private static uploadDir = path.resolve(
@@ -36,33 +37,40 @@ export class Upload {
   }
 
   /**
-   * Обрабатывает загрузку изображения из FormData
-   * @param formData - Объект формы с полем image
-   * @param defaultValue - Значение по умолчанию если изображение отсутствует
-   * @returns Путь к загруженному изображению или defaultValue
+   * Сохраняет пачку файлов из формы (порядок сохраняется).
+   * Если хоть один файл не обработался — уже загруженные удаляем, чтобы не
+   * копить мусор на диске, и бросаем `InvalidImageError` (400).
    */
-  static async processFormImage(
-    formData: Record<string, any>,
-    defaultValue: string | null = null
-  ): Promise<string | null> {
-    let imagePath = defaultValue;
+  static async saveImages(files: File[]): Promise<string[]> {
+    const paths: string[] = [];
 
-    if (formData["image"]) {
-      const imageFile = formData["image"];
-      if (typeof imageFile === "object" && "arrayBuffer" in imageFile) {
-        try {
-          imagePath = await Upload.upload(imageFile as File);
-        } catch (error) {
-          console.error("Ошибка при загрузке изображения:", error);
-          throw new Error("Не удалось загрузить изображение");
-        }
-      } else if (typeof imageFile === "string") {
-        // Если уже передан URL к изображению
-        imagePath = imageFile;
+    for (const file of files) {
+      try {
+        paths.push(await Upload.upload(file));
+      } catch (error) {
+        console.error("Ошибка при загрузке изображения:", error);
+        await Upload.removeMany(paths);
+        throw new InvalidImageError(file.name);
       }
     }
 
-    return imagePath;
+    return paths;
+  }
+
+  /** Удаляет ранее сохранённые файлы (пути — как их вернул `upload`). */
+  static async removeMany(paths: string[]) {
+    const uploadRoot = path.resolve(process.env.UPLOAD_PATH || "");
+
+    for (const relative of paths) {
+      // Абсолютные URL (сид на picsum) файлами не являются — пропускаем.
+      if (/^https?:\/\//.test(relative)) continue;
+
+      const fullPath = path.resolve(uploadRoot, relative);
+      // Не выходим за пределы каталога загрузок, даже если путь пришёл извне.
+      if (!fullPath.startsWith(uploadRoot)) continue;
+
+      await fs.promises.rm(fullPath, { force: true });
+    }
   }
 
   private static async createDir(fullUploadPath: string) {

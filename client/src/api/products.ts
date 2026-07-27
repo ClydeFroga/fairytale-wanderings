@@ -25,7 +25,10 @@ export function getProduct(id: string) {
   return apiClient.requestJson<IProduct>(`/products/${id}`)
 }
 
-// Данные товара для создания/обновления. Уходят multipart-формой (из-за картинки).
+/** Сколько картинок разрешено у товара (тот же лимит проверяет сервер). */
+export const MAX_PRODUCT_IMAGES = 5
+
+// Данные товара для создания/обновления. Уходят multipart-формой (из-за картинок).
 export type ProductInput = {
   name: string
   price: number
@@ -34,7 +37,10 @@ export type ProductInput = {
   isActive: boolean
   stock: number
   details: Record<string, string>
-  image?: File | null // новый файл; при обновлении без файла картинка сохраняется
+  images?: File[] // новые файлы — добавляются в конец галереи
+  // Пути уже сохранённых картинок, которые остаются у товара (в нужном порядке).
+  // Не передан — сервер оставляет всё как есть; пустой массив очищает галерею.
+  existingImages?: string[]
 }
 
 function toFormData(input: Partial<ProductInput>): FormData {
@@ -46,7 +52,11 @@ function toFormData(input: Partial<ProductInput>): FormData {
   if (input.isActive !== undefined) fd.set('isActive', String(input.isActive))
   if (input.stock !== undefined) fd.set('stock', String(input.stock))
   if (input.details !== undefined) fd.set('details', JSON.stringify(input.details))
-  if (input.image) fd.set('image', input.image)
+  if (input.existingImages !== undefined) {
+    fd.set('existingImages', JSON.stringify(input.existingImages))
+  }
+  // Одноимённые поля — сервер (Hono) соберёт их в массив в порядке добавления.
+  for (const file of input.images ?? []) fd.append('image', file)
   return fd
 }
 

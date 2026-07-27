@@ -1,37 +1,148 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
+import {
+  getOrders,
+  updateOrderStatus,
+  ORDER_FLOW,
+  type IOrder,
+  type OrderStatus,
+  type OrderTelegram,
+} from '@/api/orders'
 
-// ВНИМАНИЕ: заказы CRM — пока локальные демо-данные. Список и смена статуса
-// переедут на API позже; STAGES тогда синхронизируем с enum order_status на сервере.
-
-export type CrmOrder = {
-  id: string
-  customer: string
-  summary: string
-  total: string
-  stage: number
-}
-
-// Статусный флоу заказа. Порядок фиксирован: только вперёд по цепочке.
+// Подписи этапов — в том же порядке, что и ORDER_FLOW на сервере.
 export const STAGES = ['создан', 'оплачен', 'собран', 'отправлен', 'завершён'] as const
 
-export const useOrdersStore = defineStore('orders', () => {
-  const orders = ref<CrmOrder[]>([
-    { id: 'Заказ #1042', customer: 'Анна П.', summary: '2 позиции', total: '2 700 ₽', stage: 0 },
-    { id: 'Заказ #1041', customer: 'Игорь С.', summary: '1 позиция', total: '1 800 ₽', stage: 2 },
-    { id: 'Заказ #1039', customer: 'Лена М.', summary: '3 позиции', total: '5 250 ₽', stage: 3 },
-    { id: 'Заказ #1035', customer: 'Дмитрий В.', summary: '1 позиция', total: '4 500 ₽', stage: 4 },
-  ])
+// Отображаемая модель заказа в CRM.
+export type CrmOrder = {
+  id: string
+  number: string // короткий номер для глаза (первые символы uuid)
+  customer: string
+  contact: string
+  email: string
+  telegram: OrderTelegram | null
+  telegramLink: string | null // ссылка на личку, если покупатель оставил username
+  address: string
+  date: string
+  total: string
+  summary: string
+  items: IOrder['items']
+  status: OrderStatus
+  stage: number // индекс в STAGES; для отменённого — этап, на котором остановились
+  cancelled: boolean
+  channel: IOrder['channel']
+}
 
-  // Двигаем заказ на один шаг вперёд по цепочке статусов.
-  function advanceOrder(id: string) {
-    const o = orders.value.find((x) => x.id === id)
-    if (!o) return
-    o.stage = Math.min(STAGES.length - 1, o.stage + 1)
+function formatPrice(value: number): string {
+  return `${value.toLocaleString('ru-RU')} ₽`
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function itemsSummary(items: IOrder['items']): string {
+  const count = items.reduce((sum, item) => sum + item.quantity, 0)
+  if (count === 1) return '1 позиция'
+  if (count >= 2 && count <= 4) return `${count} позиции`
+  return `${count} позиций`
+}
+
+function fromApi(order: IOrder): CrmOrder {
+  const flowIndex = ORDER_FLOW.indexOf(order.status as (typeof ORDER_FLOW)[number])
+  const items = order.items ?? []
+
+  return {
+    id: order.id,
+    number: `Заказ #${order.id.slice(0, 8)}`,
+    customer: order.customerName || 'Без имени',
+    contact: order.contact || '',
+    email: order.email || '',
+    telegram: order.telegram,
+    // Написать можно только по username; по одному id ссылку не построить.
+    telegramLink: order.telegram?.username ? `https://t.me/${order.telegram.username}` : null,
+    address: order.deliveryAddress || '',
+    date: formatDate(order.createdAt),
+    total: formatPrice(order.totalPrice),
+    summary: itemsSummary(items),
+    items,
+    status: order.status,
+    // Отменённый заказ в цепочку не попадает — показываем его отдельным состоянием.
+    stage: flowIndex === -1 ? 0 : flowIndex,
+    cancelled: order.status === 'cancelled',
+    channel: order.channel,
+  }
+}
+
+export const useOrdersStore = defineStore('orders', () => {
+  const orders = ref<CrmOrder[]>([])
+  const loading = ref(false)
+  // error — не удалось загрузить список (показываем вместо него),
+  // actionError — не удалось сменить статус (список остаётся на месте).
+  const error = ref('')
+  const actionError = ref('')
+  const updatingId = ref<string | null>(null)
+
+  const orderCountLabel = computed(() => {
+    const active = orders.value.filter((o) => !o.cancelled && o.stage < STAGES.length - 1).length
+    return `${orders.value.length} заказов · ${active} в работе`
+  })
+
+  async function loadOrders() {
+    loading.value = true
+    error.value = ''
+    try {
+      orders.value = (await getOrders()).map(fromApi)
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Не удалось загрузить заказы'
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function setStatus(id: string, status: OrderStatus) {
+    updatingId.value = id
+    actionError.value = ''
+    try {
+      const updated = await updateOrderStatus(id, status)
+      orders.value = orders.value.map((o) => (o.id === id ? fromApi(updated) : o))
+    } catch (e) {
+      actionError.value = e instanceof Error ? e.message : 'Не удалось изменить статус'
+    } finally {
+      updatingId.value = null
+    }
+  }
+
+  /** Следующий статус по цепочке; null — заказ уже завершён или отменён. */
+  function nextStatus(order: CrmOrder): OrderStatus | null {
+    if (order.cancelled) return null
+    return ORDER_FLOW[order.stage + 1] ?? null
+  }
+
+  async function advanceOrder(id: string) {
+    const order = orders.value.find((o) => o.id === id)
+    const next = order && nextStatus(order)
+    if (next) await setStatus(id, next)
+  }
+
+  async function cancelOrder(id: string) {
+    await setStatus(id, 'cancelled')
   }
 
   return {
     orders,
+    loading,
+    error,
+    actionError,
+    updatingId,
+    orderCountLabel,
+    loadOrders,
+    nextStatus,
     advanceOrder,
+    cancelOrder,
   }
 })

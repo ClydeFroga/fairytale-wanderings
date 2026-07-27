@@ -35,16 +35,19 @@ src/
   index.ts                      # точка входа: CORS, статика, serve
   middleware/
     errorHandler.ts             # обработчик app.onError
+    requireAdmin.ts             # доступ к мутациям: кука сессии или админская initData
   routes/
-    index.ts                    # монтирует /products и /orders
+    index.ts                    # монтирует /products, /orders, /users, /categories
     products/                   # один роут — одна папка
       route.ts                  # хендлеры + бизнес-логика
       validator.ts              # zod-валидаторы
       helpers.ts                # вспомогательные функции роута (напр. mapFormToProduct)
       products.e2e.test.ts      # E2E-тесты роута (реальная БД)
     orders/
-      route.ts
+      route.ts                  # создание заказа + список и смена статуса для CRM
       validator.ts
+      statusFlow.ts             # цепочка статусов и допустимые переходы
+      helpers.ts                # склейка заказов с их позициями
       orders.e2e.test.ts
   test/e2e/                     # инфраструктура E2E: preload, postgres, migrate, reset
     preload.ts  postgres.ts  migrate.ts  db.ts
@@ -64,7 +67,8 @@ src/
     errors/                     # классы ошибок (AppError + наследники)
     mail/                       # SMTP-уведомление (nodemailer): mailer.ts + orderEmail.ts
     telegram/                   # initData.ts (проверка Mini App), admins.ts, webAppUrl.ts
-    utils/                      # upload, deleteFile, formatPhoneNumber
+    auth/                       # adminSession.ts — JWT-кука админки (hono/jwt)
+    utils/                      # upload (сохранение/удаление картинок), slugify, formatPhoneNumber
   utils/
     validators/                 # переиспользуемые zod-схемы (@validators/*)
       query.ts  index.ts
@@ -80,9 +84,21 @@ src/
 5. **Схема — по файлам на сущность** в `shema/` (имя папки — исторический типо `shema`, не `schema`). Перечисления и связанные таблицы (orders + orderItems) держим вместе. Типы строк таблиц (`IProduct`, `INewOrder`) — рядом со схемой; вспомогательные типы запросов (фильтры, пагинация) — в `database/types/`.
 6. **Цена и остаток — источник истины БД.** Цену позиции фиксируем из БД на момент заказа (не из запроса клиента). Остаток списываем условием `stock >= qty` (`ProductMethods.decrementStock`). Запись заказа (списание, `orders`, `order_items`) оркестрируется в роуте через `runInTransaction` — при ошибке транзакция откатывается целиком. Предварительная проверка в роуте остаётся до транзакции для раннего отказа; гонки ловит `decrementStock` внутри колбэка.
 
+## Доступ и права
+
+Пароля нет — личность даёт Телеграм. Кто админ, решает `isAdmin()` (`global/telegram/admins.ts`): `ADMIN_TELEGRAM_IDS` в `.env` или `users.is_admin`.
+
+- `POST /auth/login` (заголовок `Authorization: tma <initData>`) проверяет подпись Телеграма, сверяет права и ставит httpOnly-куку `admin_session` (JWT HS256 на 12 часов, `global/auth/adminSession.ts`; секрет — `ADMIN_JWT_SECRET`, иначе `BOT_TOKEN`). `POST /auth/logout` её сбрасывает.
+- Мутации закрыты middleware `requireAdmin`: пускает по куке **или** по свежей админской `initData` в заголовке (initData живёт час, кука — смену). Нет ни того, ни другого → 401, не админ → 403. Новые мутирующие роуты закрывать так же: `app.post('/', requireAdmin, validator, handler)`.
+- Чтение каталога и категорий открыто — это витрина.
+- `ADMIN_AUTH_DISABLED=true` снимает проверку (только для CRM в браузере на localhost; в тестах переменная сбрасывается в `preload.ts`, поэтому e2e ходят с реальными админскими заголовками из `test/e2e/auth.ts`).
+
 ## Нюансы данных
 
 - PK везде `uuid` (`defaultRandom`). У **products** JS-ключ намеренно `_id` (колонка `id`) и camelCase-поля (`image: string[]`, `isActive`, `details`, `stock`) — чтобы фронт-витрина работала без изменений. Колонки в БД — snake_case.
+- Статус заказа: `created → paid → assembled → shipped → completed`, плюс `cancelled` вне цепочки. Двигать можно только вперёд (в том числе через шаг) и в `cancelled`; из `completed`/`cancelled` — никуда (`routes/orders/statusFlow.ts`). На каждой смене статуса телеграм-клиенту уходит уведомление (`global/notify/`), у веб-заказов `chat_id` нет — им не шлём.
+- Категории: `slug` — стабильный ключ для фильтра витрины (`GET /products?category=<slug>`), генерируется из названия транслитом при создании и **не меняется** при переименовании. Названия уникальны без учёта регистра (проверка в роуте). Удаление категории обнуляет `products.category_id`, товары остаются.
+- Картинки товара — массив относительных путей (`images/x.webp`) в `products.image`, файлы лежат в `UPLOAD_PATH/images` и раздаются сервером. Загрузка: повторяющееся поле формы `image` (Hono собирает одноимённые поля в массив), не больше `MAX_PRODUCT_IMAGES` (5). При `PATCH` набор задаётся полем `existingImages` (JSON-массив оставляемых путей) + новые файлы; выпавшие файлы удаляются с диска (`Upload.removeMany`). Первая картинка — обложка.
 - `users` нужны только боту (идентификация — сам Telegram). У веб-заказов `userId = null` (гостевой checkout).
 - Корзина живёт на клиенте; серверной таблицы корзины нет.
 
@@ -109,4 +125,5 @@ E2E через `bun test` (preload в `bunfig.toml`). Тесты лежат ря
 - Веб-приём заказа: запись в БД со списанием остатка и сохранением имени/контакта — готово. Письмо владелице по SMTP при создании заказа — готово (`global/mail/`, `nodemailer`; шлётся после коммита транзакции, сбой почты не ломает заказ; без `SMTP_*`/`MAIL_TO` тихо пропускается).
 - Бот (`bot/`, telegraf, запуск в `index.ts`; без `BOT_TOKEN` — тихий пропуск): `/start` регистрирует пользователя и даёт inline-кнопку Mini App, `contact` сохраняет телефон, `/admin` — вход в CRM для админов. Заказы оформляются в Mini App, а не сообщениями бота.
 - Админы: `isAdmin(telegramId, dbUser)` в `global/telegram/admins.ts` — `ADMIN_TELEGRAM_IDS` из `.env` или флаг `users.is_admin`. Используют бот (кнопка «Панель управления») и `GET /users/me`. URL-ы Mini App — `global/telegram/webAppUrl.ts`.
-- Задел под оплату (`status`, `paymentMethod` в `orders`) и доставку СДЭК — на будущее.
+- CRM (`/admin`): товары, категории и заказы полностью на API. Осталось из Этапа 5 — опт-ин уведомлений для веб-заказов (кнопка на «Заказ принят» + `notify_telegram_id`), сознательно отложен.
+- Задел под оплату (`paymentMethod` в `orders`, статус `paid` выставляется вручную из CRM) и доставку СДЭК — на будущее.

@@ -5,6 +5,7 @@ import { useCartStore } from '@/stores/cart'
 import MakeOrderButton from '@/components/global/MakeOrderButton.vue'
 import FormField from '@/components/global/FormField.vue'
 import { isTelegram } from '@/scripts/telegram'
+import { imageUrl } from '@/scripts/images'
 import { getMe } from '@/api/users'
 
 const cartStore = useCartStore()
@@ -44,7 +45,7 @@ onMounted(async () => {
           <div
             class="bg-center bg-no-repeat aspect-square bg-cover rounded-lg size-[70px]"
             :style="{
-              backgroundImage: `url(${product.image[0]})`,
+              backgroundImage: `url(${imageUrl(product.image?.[0])})`,
             }"
           ></div>
           <div class="flex flex-1 flex-col justify-center">
@@ -119,6 +120,14 @@ onMounted(async () => {
           type="tel"
           inputmode="tel"
           :has-error="cartStore.showValidationErrors && !cartStore.isPhoneValid"
+        />
+        <FormField
+          v-model="cartStore.email"
+          label="Почта (необязательно)"
+          placeholder="you@example.com"
+          type="email"
+          inputmode="email"
+          :has-error="cartStore.showValidationErrors && !cartStore.isEmailValid"
         />
       </div>
     </div>

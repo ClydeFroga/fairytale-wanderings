@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import type { IProduct } from '@/types/product'
 import { computed } from 'vue'
+import { imageUrl } from '@/scripts/images'
 
 const props = defineProps<{ product: IProduct }>()
 
+const cover = computed(() => imageUrl(props.product.image?.[0]))
 const priceLabel = computed(() => `${props.product.price.toLocaleString('ru-RU')} ₽`)
 const stockLabel = computed(() =>
   props.product.stock === 0 ? 'нет в наличии' : `осталось ${props.product.stock} шт.`,
@@ -20,7 +22,7 @@ const stockLabel = computed(() =>
       <div
         class="h-full w-full bg-center bg-no-repeat bg-cover transition-transform duration-300 group-hover:scale-105"
         :style="{
-          backgroundImage: `url(${props.product.image[0]})`,
+          backgroundImage: `url(${cover})`,
           filter: props.product.stock === 0 ? 'grayscale(100%)' : 'none',
         }"
       ></div>

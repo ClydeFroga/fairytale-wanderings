@@ -9,11 +9,14 @@ import {
 import { users } from "./userSchema";
 import { products } from "./productSchema";
 
+// Флоу заказа: создан → оплачен → собран → отправлен → завершён.
+// `cancelled` — отмена вне цепочки, возможна с любого шага до завершения.
 export const orderStatus = pgEnum("order_status", [
-  "pending",
-  "processing",
+  "created",
+  "paid",
+  "assembled",
   "shipped",
-  "delivered",
+  "completed",
   "cancelled",
 ]);
 
@@ -23,12 +26,13 @@ export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").references(() => users.id), // null для веб-заказов (гостевой checkout)
   customerName: text("customer_name"),
-  contact: text("contact"),
+  contact: text("contact"), // телефон
+  email: text("email"), // необязательная почта — второй канал связи для веб-заказов
   deliveryMethod: text("delivery_method"),
   deliveryAddress: text("delivery_address"),
   comment: text("comment"),
   totalPrice: integer("total_price").notNull().default(0),
-  status: orderStatus("status").notNull().default("pending"),
+  status: orderStatus("status").notNull().default("created"),
   paymentMethod: text("payment_method"),
   channel: orderChannel("channel").notNull().default("web"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

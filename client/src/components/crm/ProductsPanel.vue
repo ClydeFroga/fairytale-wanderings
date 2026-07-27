@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useProductsStore, swatch, type CrmProduct } from '@/stores/products'
+import { useProductsStore, swatch, coverUrl, type CrmProduct } from '@/stores/products'
 
 const products = useProductsStore()
 
@@ -49,11 +49,17 @@ function stockColor(stock: number): string {
         <div
           class="swatch"
           :style="
-            p.image
-              ? { backgroundImage: `url(${p.image})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+            coverUrl(p)
+              ? {
+                  backgroundImage: `url(${coverUrl(p)})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }
               : { backgroundImage: swatch(p.hue) }
           "
-        ></div>
+        >
+          <span v-if="p.images.length > 1" class="swatch-count">{{ p.images.length }}</span>
+        </div>
         <div class="product-meta">
           <div class="product-name">{{ p.name }}</div>
           <div class="product-details">{{ p.details }}</div>
@@ -144,6 +150,21 @@ function stockColor(stock: number): string {
   border-radius: 10px;
   flex: none;
   border: 1px solid rgba(122, 92, 58, 0.16);
+  position: relative;
+}
+/* Сколько всего картинок у товара — видно, что галерея не одна картинка. */
+.swatch-count {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #3a2a19;
+  color: #f7f1e6;
+  font: 500 11px/18px 'Spline Sans';
+  text-align: center;
 }
 .product-meta {
   min-width: 0;

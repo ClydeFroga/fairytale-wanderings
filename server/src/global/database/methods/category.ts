@@ -16,8 +16,28 @@ export class CategoryMethods {
     return row ?? null;
   }
 
+  static async getById(id: string): Promise<ICategory | null> {
+    const [row] = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
+    return row ?? null;
+  }
+
   static async create(data: INewCategory): Promise<ICategory> {
     const [row] = await db.insert(categories).values(data).returning();
     return row!;
+  }
+
+  static async update(id: string, data: Partial<INewCategory>): Promise<ICategory | null> {
+    const [row] = await db
+      .update(categories)
+      .set(data)
+      .where(eq(categories.id, id))
+      .returning();
+    return row ?? null;
+  }
+
+  // Товары не удаляются: FK стоит на ON DELETE SET NULL, они станут «без категории».
+  static async remove(id: string): Promise<ICategory | null> {
+    const [row] = await db.delete(categories).where(eq(categories.id, id)).returning();
+    return row ?? null;
   }
 }

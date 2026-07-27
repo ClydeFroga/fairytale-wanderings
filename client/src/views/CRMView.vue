@@ -2,6 +2,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useProductsStore, type CrmProduct } from '@/stores/products'
 import { useCategoriesStore } from '@/stores/categories'
+import { useOrdersStore, type CrmOrder } from '@/stores/orders'
+import type { ICategory } from '@/api/categories'
 import CrmSidebar, { type CrmView } from '@/components/crm/CrmSidebar.vue'
 import ProductsPanel from '@/components/crm/ProductsPanel.vue'
 import CategoriesPanel from '@/components/crm/CategoriesPanel.vue'
@@ -12,10 +14,12 @@ import '@/components/crm/crm-ui.css'
 
 const productsStore = useProductsStore()
 const categoriesStore = useCategoriesStore()
+const ordersStore = useOrdersStore()
 
 onMounted(() => {
   productsStore.loadProducts()
   categoriesStore.loadCategories()
+  ordersStore.loadOrders()
 })
 
 const view = ref<CrmView>('products')
@@ -47,20 +51,34 @@ async function confirmDeleteProduct() {
 }
 
 // --- удаление категории ---
-const pendingDeleteCategory = ref<string | null>(null)
+const pendingDeleteCategory = ref<ICategory | null>(null)
 const deleteCategoryMessage = computed(() => {
-  const name = pendingDeleteCategory.value
-  if (!name) return ''
-  const n = categoriesStore.countInCategory(name)
+  const category = pendingDeleteCategory.value
+  if (!category) return ''
+  const n = categoriesStore.countInCategory(category.id)
   const warn =
     n === 0
       ? 'В этой категории нет товаров.'
       : `${n} ${n === 1 ? 'товар получит' : 'товаров получат'} статус «без категории».`
-  return `«${name}» будет удалена. ${warn}`
+  return `«${category.name}» будет удалена. ${warn}`
 })
-function confirmDeleteCategory() {
-  if (pendingDeleteCategory.value) categoriesStore.deleteCategory(pendingDeleteCategory.value)
+async function confirmDeleteCategory() {
+  const target = pendingDeleteCategory.value
   pendingDeleteCategory.value = null
+  if (target) await categoriesStore.deleteCategory(target.id)
+}
+
+// --- отмена заказа ---
+const pendingCancelOrder = ref<CrmOrder | null>(null)
+const cancelOrderMessage = computed(() =>
+  pendingCancelOrder.value
+    ? `${pendingCancelOrder.value.number} на ${pendingCancelOrder.value.total} будет отменён. Клиент получит уведомление в Telegram, если заказывал оттуда.`
+    : '',
+)
+async function confirmCancelOrder() {
+  const target = pendingCancelOrder.value
+  pendingCancelOrder.value = null
+  if (target) await ordersStore.cancelOrder(target.id)
 }
 </script>
 
@@ -76,7 +94,7 @@ function confirmDeleteCategory() {
         @delete="pendingDeleteProduct = $event"
       />
       <CategoriesPanel v-else-if="view === 'categories'" @delete="pendingDeleteCategory = $event" />
-      <OrdersPanel v-else-if="view === 'orders'" />
+      <OrdersPanel v-else-if="view === 'orders'" @cancel="pendingCancelOrder = $event" />
     </main>
 
     <ProductFormDrawer
@@ -100,6 +118,14 @@ function confirmDeleteCategory() {
       :message="deleteCategoryMessage"
       @confirm="confirmDeleteCategory"
       @cancel="pendingDeleteCategory = null"
+    />
+
+    <ConfirmModal
+      :open="pendingCancelOrder !== null"
+      title="Отменить заказ?"
+      :message="cancelOrderMessage"
+      @confirm="confirmCancelOrder"
+      @cancel="pendingCancelOrder = null"
     />
   </div>
 </template>

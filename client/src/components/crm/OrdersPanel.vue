@@ -3,6 +3,8 @@ import { useOrdersStore, STAGES, type CrmOrder } from '@/stores/orders'
 
 const ordersStore = useOrdersStore()
 
+const emit = defineEmits<{ cancel: [order: CrmOrder] }>()
+
 function isDone(o: CrmOrder): boolean {
   return o.stage >= STAGES.length - 1
 }
@@ -10,6 +12,7 @@ function isDone(o: CrmOrder): boolean {
 // Метка кнопки перехода — следующий статус с заглавной буквы.
 function advanceLabel(o: CrmOrder): string {
   const next = STAGES[o.stage + 1]
+  if (!next) return ''
   return next.charAt(0).toUpperCase() + next.slice(1) + ' →'
 }
 
@@ -37,40 +40,100 @@ function steps(o: CrmOrder): Step[] {
 <template>
   <div class="head">
     <h1 class="crm-h1">Заказы</h1>
+    <p class="crm-subtitle">{{ ordersStore.orderCountLabel }}</p>
     <p class="crm-subtitle">
       Проведите заказ по этапам: создан → оплачен → собран → отправлен → завершён
     </p>
   </div>
 
-  <div class="list">
-    <div v-for="o in ordersStore.orders" :key="o.id" class="order">
+  <p v-if="ordersStore.actionError" class="action-error">{{ ordersStore.actionError }}</p>
+
+  <div v-if="ordersStore.loading" class="state">Загрузка заказов…</div>
+
+  <!-- Ошибка вместо списка: иначе «не смогли загрузить» читается как «заказов нет». -->
+  <div v-else-if="ordersStore.error" class="crm-panel state state-error">
+    <p>{{ ordersStore.error }}</p>
+    <button type="button" class="crm-btn crm-btn-sm" @click="ordersStore.loadOrders()">
+      Повторить
+    </button>
+  </div>
+
+  <div v-else-if="ordersStore.orders.length === 0" class="crm-panel state">Заказов пока нет.</div>
+
+  <div v-else class="list">
+    <div v-for="o in ordersStore.orders" :key="o.id" class="order" :class="{ off: o.cancelled }">
       <div class="order-head">
         <div class="order-info">
-          <span class="order-id">{{ o.id }}</span>
+          <span class="order-id">{{ o.number }}</span>
           <span class="order-customer">{{ o.customer }}</span>
-          <span class="order-summary">· {{ o.summary }}</span>
+          <span v-if="o.contact" class="order-customer">· {{ o.contact }}</span>
+          <a v-if="o.email" class="mail-link" :href="`mailto:${o.email}`">{{ o.email }}</a>
+          <span class="order-summary">· {{ o.summary }} · {{ o.date }}</span>
+          <span class="channel" :class="o.channel">{{
+            o.channel === 'telegram' ? 'Telegram' : 'сайт'
+          }}</span>
+
+          <!-- Телеграм покупателя: по username можно написать, иначе показываем id. -->
+          <a
+            v-if="o.telegramLink"
+            class="tg-link"
+            :href="o.telegramLink"
+            target="_blank"
+            rel="noopener"
+            :title="o.telegram?.name ? `Написать ${o.telegram.name}` : 'Написать в Telegram'"
+          >
+            @{{ o.telegram?.username }}
+          </a>
+          <span v-else-if="o.telegram" class="tg-id" title="У покупателя нет @username">
+            tg id {{ o.telegram.id }}
+          </span>
         </div>
         <div class="order-right">
           <span class="order-total">{{ o.total }}</span>
-          <button
-            v-if="!isDone(o)"
-            type="button"
-            class="crm-btn crm-btn-sm"
-            @click="ordersStore.advanceOrder(o.id)"
-          >
-            {{ advanceLabel(o) }}
-          </button>
-          <span v-else class="order-done">✓ завершён</span>
+
+          <template v-if="o.cancelled">
+            <span class="order-cancelled">отменён</span>
+          </template>
+          <template v-else-if="isDone(o)">
+            <span class="order-done">✓ завершён</span>
+          </template>
+          <template v-else>
+            <button
+              type="button"
+              class="crm-btn-ghost crm-btn-sm"
+              :disabled="ordersStore.updatingId === o.id"
+              @click="emit('cancel', o)"
+            >
+              Отменить
+            </button>
+            <button
+              type="button"
+              class="crm-btn crm-btn-sm"
+              :disabled="ordersStore.updatingId === o.id"
+              @click="ordersStore.advanceOrder(o.id)"
+            >
+              {{ ordersStore.updatingId === o.id ? 'Сохранение…' : advanceLabel(o) }}
+            </button>
+          </template>
         </div>
       </div>
 
-      <div class="pipeline">
+      <ul class="items">
+        <li v-for="(item, i) in o.items" :key="i">
+          {{ item.name }} × {{ item.quantity }}
+          <span class="item-price"
+            >{{ (item.price * item.quantity).toLocaleString('ru-RU') }} ₽</span
+          >
+        </li>
+      </ul>
+
+      <p v-if="o.address" class="address">Доставка: {{ o.address }}</p>
+
+      <!-- У отменённого заказа цепочка этапов ничего не значит — не показываем. -->
+      <div v-if="!o.cancelled" class="pipeline">
         <div v-for="(st, i) in steps(o)" :key="i" class="step-wrap">
           <div class="step">
-            <div
-              class="dot"
-              :class="{ done: st.done, current: st.current }"
-            >
+            <div class="dot" :class="{ done: st.done, current: st.current }">
               {{ st.mark }}
             </div>
             <span class="step-label" :class="{ active: st.done || st.current }">{{
@@ -103,6 +166,85 @@ function steps(o: CrmOrder): Step[] {
   border-radius: 16px;
   padding: 18px 20px;
   box-shadow: 0 12px 30px -24px rgba(74, 52, 30, 0.5);
+}
+/* Отменённый заказ из списка не убираем, но приглушаем. */
+.order.off {
+  opacity: 0.6;
+}
+.state {
+  padding: 40px 20px;
+  text-align: center;
+  font-size: 14px;
+  color: #8a7458;
+}
+.action-error {
+  margin: -10px 0 16px;
+  font-size: 13px;
+  color: #b0623f;
+}
+.state-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  color: #b0623f;
+}
+.channel {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font: 500 11px 'Spline Sans';
+  background: #eadfce;
+  color: #8a7458;
+}
+.channel.telegram {
+  background: #dfe9f2;
+  color: #4a6d8c;
+}
+.mail-link {
+  font-size: 13px;
+  color: #8a7458;
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(138, 116, 88, 0.5);
+}
+.mail-link:hover {
+  color: #5f4d38;
+}
+.tg-link,
+.tg-id {
+  font-size: 13px;
+  color: #4a6d8c;
+}
+.tg-link {
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(74, 109, 140, 0.5);
+}
+.tg-link:hover {
+  color: #2f5474;
+}
+.tg-id {
+  color: #a08a6a;
+}
+.items {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+  color: #5f4d38;
+}
+.item-price {
+  color: #a08a6a;
+}
+.address {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: #8a7458;
+}
+.order-cancelled {
+  font: 600 13px 'Spline Sans';
+  color: #b0623f;
 }
 .order-head {
   display: flex;

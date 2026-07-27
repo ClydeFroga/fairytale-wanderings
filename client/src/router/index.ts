@@ -2,19 +2,22 @@ import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vu
 import StoreView from '../views/StoreView.vue'
 import AdminLayout from '../layouts/AdminLayout.vue'
 import CommonLayout from '@/layouts/CommonLayout.vue'
-import { getMe } from '@/api/users'
+import { loginAdmin } from '@/api/auth'
 
 // Пускаем в /admin только админов. Иначе — показываем 404 (без раскрытия
 // существования раздела), сохраняя исходный URL через catch-all маршрут.
+// Заодно это вход в админку: сервер ставит куку сессии, и мутирующие запросы
+// CRM уходят уже авторизованными.
 async function requireAdmin(to: RouteLocationNormalized) {
   // В деве мы не внутри Telegram (initData нет) — открываем CRM без проверки.
+  // Серверная сторона в этом случае открывается через ADMIN_AUTH_DISABLED.
   if (import.meta.env.DEV) return true
 
   try {
-    const me = await getMe()
-    if (me?.isAdmin) return true
+    const admin = await loginAdmin()
+    if (admin?.isAdmin) return true
   } catch {
-    // Не удалось подтвердить доступ — трактуем как отсутствие прав.
+    // 401/403 или сеть — трактуем как отсутствие прав.
   }
   return { name: 'not-found', params: { pathMatch: to.path.slice(1).split('/') } }
 }

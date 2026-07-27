@@ -1,64 +1,83 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import { getCategories, type ICategory } from '@/api/categories'
+import {
+  getCategories,
+  createCategory as apiCreateCategory,
+  updateCategory as apiUpdateCategory,
+  deleteCategory as apiDeleteCategory,
+  type ICategory,
+} from '@/api/categories'
 import { useProductsStore } from '@/stores/products'
 
-// ВНИМАНИЕ: список категорий CRM (`categories`) — пока локальные демо-данные:
-// добавление/удаление живёт на клиенте, серверного CRUD категорий ещё нет.
-// `apiCategories` — реальные категории из БД, нужны форме товара (уходит categoryId).
-
 export const useCategoriesStore = defineStore('categories', () => {
-  const categories = ref<string[]>([
-    'Кухня',
-    'Игрушки',
-    'Аксессуары',
-    'Декор',
-    'Керамика',
-    'Украшения',
-  ])
+  const categories = ref<ICategory[]>([])
+  const loading = ref(false)
+  const error = ref('')
 
-  const apiCategories = ref<ICategory[]>([])
+  const categoryCountLabel = computed(() => {
+    const n = categories.value.length
+    if (n === 1) return '1 категория'
+    if (n >= 2 && n <= 4) return `${n} категории`
+    return `${n} категорий`
+  })
 
-  const categoryCountLabel = computed(() => `${categories.value.length} категорий`)
-
-  function countInCategory(name: string): number {
-    return useProductsStore().countInCategory(name)
+  function countInCategory(id: string): number {
+    return useProductsStore().countInCategory(id)
   }
 
   async function loadCategories() {
+    loading.value = true
+    error.value = ''
     try {
-      apiCategories.value = await getCategories()
-    } catch {
-      // не критично для показа товаров — форма просто останется без списка
+      categories.value = await getCategories()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Не удалось загрузить категории'
+    } finally {
+      loading.value = false
     }
   }
 
-  // true — если название непустое и такой категории ещё нет (без учёта регистра).
+  // Дубли ловит и сервер (409), но пустое/повторное название отсекаем сразу —
+  // чтобы кнопка «Добавить» была неактивна, а не выдавала ошибку по клику.
   function canAddCategory(name: string): boolean {
-    const v = name.trim()
-    return !!v && !categories.value.some((c) => c.toLowerCase() === v.toLowerCase())
+    const value = name.trim()
+    return !!value && !categories.value.some((c) => c.name.toLowerCase() === value.toLowerCase())
   }
 
-  function addCategory(name: string) {
-    const v = name.trim()
-    if (!canAddCategory(v)) return
-    categories.value.push(v)
+  async function addCategory(name: string) {
+    const created = await apiCreateCategory({ name: name.trim() })
+    categories.value = [...categories.value, created]
   }
 
-  // Удаляем категорию, а её товары переводим в «Без категории».
-  function deleteCategory(name: string) {
-    categories.value = categories.value.filter((c) => c !== name)
-    useProductsStore().detachCategory(name)
+  async function renameCategory(id: string, name: string) {
+    const updated = await apiUpdateCategory(id, { name: name.trim() })
+    categories.value = categories.value.map((c) => (c.id === id ? updated : c))
+  }
+
+  // Товары удалённой категории не пропадают — сервер обнуляет им categoryId,
+  // поэтому список товаров перечитываем, чтобы CRM показала «Без категории».
+  // Удаление запускается из модалки в CRMView, ей некуда показать ошибку —
+  // поэтому сбой кладём в error (панель покажет его с кнопкой «Повторить»).
+  async function deleteCategory(id: string) {
+    try {
+      await apiDeleteCategory(id)
+      categories.value = categories.value.filter((c) => c.id !== id)
+      await useProductsStore().loadProducts()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Не удалось удалить категорию'
+    }
   }
 
   return {
     categories,
-    apiCategories,
+    loading,
+    error,
     categoryCountLabel,
     countInCategory,
     loadCategories,
     canAddCategory,
     addCategory,
+    renameCategory,
     deleteCategory,
   }
 })

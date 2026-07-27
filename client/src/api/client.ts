@@ -1,4 +1,5 @@
 import { ROOT_URL } from '@/config'
+import { getInitData } from '@/scripts/telegram'
 
 type RequestOptions = {
   method?: string
@@ -37,10 +38,19 @@ export class ApiClient {
     const finalHeaders: Record<string, string> = { ...headers }
     if (body !== undefined && !isFormData) finalHeaders['Content-Type'] = 'application/json'
 
+    // Внутри Телеграма всегда прикладываем initData: по ней сервер узнаёт
+    // пользователя (заказ, профиль) и пускает админа в закрытые эндпоинты.
+    const initData = getInitData()
+    if (initData && !finalHeaders.Authorization) {
+      finalHeaders.Authorization = `tma ${initData}`
+    }
+
     return fetch(this.baseUrl + path, {
       method,
       headers: Object.keys(finalHeaders).length ? finalHeaders : undefined,
       body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
+      // Кука сессии админки живёт на домене API — без include она не поедет.
+      credentials: 'include',
     })
   }
 

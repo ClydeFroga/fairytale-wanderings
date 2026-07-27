@@ -3,10 +3,17 @@ import { cors } from "hono/cors";
 import routes from "./routes/index";
 import { errorHandler } from "./middleware/errorHandler";
 
+// Домены фронта: с credentials: true подстановка "*" запрещена, поэтому список
+// задаётся явно (в проде — CORS_ORIGINS через запятую).
+const allowedOrigins = (process.env.CORS_ORIGINS || "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const corsMiddleware = cors({
-  origin: ['http://localhost:5173'],
+  origin: allowedOrigins,
   allowHeaders: ["Content-Type", "Authorization"],
-  allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowMethods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
   exposeHeaders: ["Content-Length", "X-Kuma-Revision"],
   maxAge: 600,
   credentials: true,

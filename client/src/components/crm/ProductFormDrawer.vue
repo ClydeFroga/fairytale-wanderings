@@ -7,6 +7,8 @@ import {
   type DetailRow,
 } from '@/stores/products'
 import { useCategoriesStore } from '@/stores/categories'
+import { imageUrl } from '@/scripts/images'
+import { MAX_PRODUCT_IMAGES } from '@/api/products'
 
 const props = defineProps<{
   open: boolean
@@ -25,9 +27,15 @@ const form = ref<ProductDraft>(emptyDraft())
 const saving = ref(false)
 const saveError = ref('')
 
-// Превью выбранного файла (object URL). Держим отдельно, чтобы вовремя освобождать.
-const newImagePreview = ref<string | null>(null)
+// Галерея товара: уже сохранённые картинки (path) и только что выбранные файлы
+// (file + object URL для превью) в одном списке — порядок в нём и уходит на сервер.
+type ImageSlot = { key: string; url: string; path?: string; file?: File }
+
+const slots = ref<ImageSlot[]>([])
+const imagesHint = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
+
+let slotSeq = 0
 
 function emptyDraft(): ProductDraft {
   return {
@@ -35,11 +43,11 @@ function emptyDraft(): ProductDraft {
     description: '',
     price: '',
     stock: '',
-    categoryId: categoriesStore.apiCategories[0]?.id ?? '',
+    categoryId: categoriesStore.categories[0]?.id ?? '',
     details: [{ key: '', value: '' }],
     isActive: true,
-    imageFile: null,
-    existingImage: undefined,
+    imageFiles: [],
+    existingImages: [],
   }
 }
 
@@ -48,11 +56,13 @@ function detailsFromMap(map: Record<string, string>): DetailRow[] {
   return rows.length ? rows : [{ key: '', value: '' }]
 }
 
-function clearPreview() {
-  if (newImagePreview.value) {
-    URL.revokeObjectURL(newImagePreview.value)
-    newImagePreview.value = null
+// Object URL живёт, пока слот в списке; освобождаем при удалении и закрытии формы.
+function releaseSlots() {
+  for (const slot of slots.value) {
+    if (slot.file) URL.revokeObjectURL(slot.url)
   }
+  slots.value = []
+  imagesHint.value = ''
 }
 
 // При открытии наполняем форму: из товара (редактирование) или пустую (создание).
@@ -60,7 +70,7 @@ watch(
   () => [props.open, props.product] as const,
   ([open]) => {
     if (!open) return
-    clearPreview()
+    releaseSlots()
     saveError.value = ''
     const p = props.product
     form.value = p
@@ -72,15 +82,21 @@ watch(
           categoryId: p.categoryId ?? '',
           details: detailsFromMap(p.detailsMap),
           isActive: p.isActive,
-          imageFile: null,
-          existingImage: p.image,
+          // Картинки живут в slots — в черновик они попадают только при сохранении.
+          imageFiles: [],
+          existingImages: [],
         }
       : emptyDraft()
+    slots.value = (p?.images ?? []).map((path) => ({
+      key: `saved-${slotSeq++}`,
+      url: imageUrl(path) ?? '',
+      path,
+    }))
   },
   { immediate: true },
 )
 
-onBeforeUnmount(clearPreview)
+onBeforeUnmount(releaseSlots)
 
 const isEditing = computed(() => props.product !== null)
 const title = computed(() => (isEditing.value ? 'Редактировать товар' : 'Новый товар'))
@@ -90,22 +106,34 @@ const activeHint = computed(() =>
 )
 const canSave = computed(() => !!form.value.name.trim() && !saving.value)
 
-// Картинка для показа в слоте: новый файл в приоритете, иначе текущая.
-const previewImage = computed(() => newImagePreview.value ?? form.value.existingImage ?? null)
+const maxImages = MAX_PRODUCT_IMAGES
+const canAddImages = computed(() => slots.value.length < maxImages)
+const imagesCount = computed(() => `${slots.value.length} из ${maxImages}`)
 
-function pickImage() {
+function pickImages() {
   fileInput.value?.click()
 }
-function onFileChange(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0] ?? null
-  clearPreview()
-  form.value.imageFile = file
-  if (file) newImagePreview.value = URL.createObjectURL(file)
+
+function onFilesChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const picked = Array.from(input.files ?? [])
+  const free = maxImages - slots.value.length
+
+  for (const file of picked.slice(0, free)) {
+    slots.value.push({ key: `new-${slotSeq++}`, url: URL.createObjectURL(file), file })
+  }
+
+  imagesHint.value =
+    picked.length > free ? `Можно не больше ${maxImages} изображений — лишние не добавлены.` : ''
+
+  // Сбрасываем input, иначе повторный выбор того же файла не вызовет change.
+  input.value = ''
 }
-function discardNewImage() {
-  clearPreview()
-  form.value.imageFile = null
-  if (fileInput.value) fileInput.value.value = ''
+
+function removeImage(index: number) {
+  const [removed] = slots.value.splice(index, 1)
+  if (removed?.file) URL.revokeObjectURL(removed.url)
+  imagesHint.value = ''
 }
 
 function addDetail() {
@@ -120,7 +148,13 @@ async function save() {
   saving.value = true
   saveError.value = ''
   try {
-    await productsStore.saveProduct(form.value, props.product?.id ?? null)
+    // Галерея: что осталось от старых картинок и что добавили — в порядке слотов.
+    const draft: ProductDraft = {
+      ...form.value,
+      existingImages: slots.value.flatMap((s) => (s.path ? [s.path] : [])),
+      imageFiles: slots.value.flatMap((s) => (s.file ? [s.file] : [])),
+    }
+    await productsStore.saveProduct(draft, props.product?.id ?? null)
     emit('saved')
   } catch (e) {
     saveError.value = e instanceof Error ? e.message : 'Не удалось сохранить товар'
@@ -143,35 +177,49 @@ async function save() {
 
       <div class="drawer-body">
         <div class="field">
-          <label class="crm-label">Изображение</label>
+          <label class="crm-label">
+            Изображения
+            <span class="images-count">{{ imagesCount }}</span>
+          </label>
           <div class="images">
             <div
-              v-if="previewImage"
+              v-for="(slot, i) in slots"
+              :key="slot.key"
               class="image"
-              :style="{ backgroundImage: `url(${previewImage})` }"
+              :style="{ backgroundImage: `url(${slot.url})` }"
             >
+              <span v-if="i === 0" class="image-cover">обложка</span>
               <button
-                v-if="newImagePreview"
                 type="button"
                 class="image-remove"
-                aria-label="Отменить выбор"
-                title="Отменить выбор"
-                @click="discardNewImage"
+                aria-label="Убрать изображение"
+                title="Убрать"
+                @click="removeImage(i)"
               >
                 ✕
               </button>
             </div>
-            <button type="button" class="image-add" :title="previewImage ? 'Заменить' : 'Загрузить'" @click="pickImage">
-              {{ previewImage ? '↻' : '+' }}
+            <button
+              v-if="canAddImages"
+              type="button"
+              class="image-add"
+              title="Добавить изображения"
+              @click="pickImages"
+            >
+              +
             </button>
             <input
               ref="fileInput"
               type="file"
               accept="image/*"
+              multiple
               class="file-hidden"
-              @change="onFileChange"
+              @change="onFilesChange"
             />
           </div>
+          <p class="images-hint" :class="{ warn: imagesHint }">
+            {{ imagesHint || 'Первая картинка — обложка в каталоге. Порядок задаётся списком.' }}
+          </p>
         </div>
 
         <div class="field">
@@ -209,7 +257,7 @@ async function save() {
           <label class="crm-label">Категория</label>
           <select v-model="form.categoryId" class="crm-input">
             <option value="">Без категории</option>
-            <option v-for="c in categoriesStore.apiCategories" :key="c.id" :value="c.id">
+            <option v-for="c in categoriesStore.categories" :key="c.id" :value="c.id">
               {{ c.name }}
             </option>
           </select>
@@ -342,6 +390,30 @@ async function save() {
   position: relative;
   background-size: cover;
   background-position: center;
+}
+.images-count {
+  margin-left: 6px;
+  font-size: 11px;
+  color: #a08a6a;
+}
+.images-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #a08a6a;
+}
+.images-hint.warn {
+  color: #b0623f;
+}
+.image-cover {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(46, 33, 19, 0.72);
+  color: #f7f1e6;
+  font-size: 10px;
+  line-height: 16px;
 }
 .image-remove {
   position: absolute;
