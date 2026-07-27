@@ -1,7 +1,9 @@
 import { Telegraf } from 'telegraf'
 import { StartListener } from './listeners/StartListener'
 import { PhoneListener } from './listeners/PhoneListener'
+import { AdminListener } from './listeners/AdminListener'
 import type { Listener } from './listeners/Listener'
+import { webAppUrl } from '@global/telegram/webAppUrl'
 
 class Bot {
   private bot: Telegraf
@@ -33,8 +35,9 @@ class Bot {
   }
 
   // Постоянная кнопка меню (рядом с полем ввода) — открывает магазин как Mini App.
+  // Она общая для всех чатов; вход в админку — отдельная кнопка и команда /admin.
   private async setMenuButton() {
-    const url = process.env.WEBAPP_URL
+    const url = webAppUrl()
     if (!url) return
 
     try {
@@ -47,7 +50,7 @@ class Bot {
   }
 
   private createListeners(): Listener[] {
-    return [new StartListener(this.bot), new PhoneListener(this.bot)]
+    return [new StartListener(this.bot), new PhoneListener(this.bot), new AdminListener(this.bot)]
   }
 
   private startListeners() {

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { verifyInitData } from "@global/telegram/initData";
 import { UserMethods } from "@global/database/methods/user";
+import { isAdmin } from "@global/telegram/admins";
 import { InvalidInitDataError } from "@global/errors";
 
 const app = new Hono();
@@ -18,7 +19,9 @@ app.get("/me", async (c) => {
     firstName: dbUser?.firstName ?? user.firstName,
     lastName: dbUser?.lastName ?? user.lastName ?? null,
     phone: dbUser?.phone ?? null,
-    isAdmin: dbUser?.isAdmin ?? false,
+    // Права считаем по telegramId из проверенной initData: тот же критерий,
+    // что и у кнопки «Панель управления» в боте.
+    isAdmin: isAdmin(user.id, dbUser),
   });
 });
 

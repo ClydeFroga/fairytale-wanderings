@@ -22,6 +22,12 @@
 - **Seed**: 5 тестовых товаров с остатками (`bun run db:seed`).
 - **Этап 3 — Telegram Mini App.** Сайт открывается внутри Телеграма как WebApp (каталог/корзина не переписывались сообщениями бота). **Бот:** `/start` → inline-кнопка `web_app` с `WEBAPP_URL` + постоянная кнопка меню «Магазин»; запуск в `index.ts` (без `BOT_TOKEN` — тихий пропуск). Пользователь создаётся при `/start` по `telegramId`; телефон необязателен (опционально — шаринг контакта). **Фронт:** `telegram-web-app.js` в `index.html`, `initTelegram()` (`ready()`/`expand()`) в `App.vue`, `getInitData()`/`isTelegram()` в `scripts/telegram.ts`; при оформлении `initData` уходит в POST `/orders/create`; в `CartView` — предзаполнение телефона из `GET /users/me` (заголовок `Authorization: tma <initData>`). **Бэкенд:** `verifyInitData` (`@telegram-apps/init-data-node`, HMAC + свежесть) в `global/telegram/initData.ts`; при валидной `initData` — `channel=telegram`, `UserMethods.upsertByTelegram`, `userId` на заказе; поддельная/протухшая — `InvalidInitDataError` (401). E2E-тесты на телеграм-заказ и отклонение фейковой `initData`. Письмо владелице — как в Этапе 2.
 
+  - **Вход в админку из бота (для админов).** В Mini App нельзя ввести адрес руками, поэтому попасть на `/admin` можно только по кнопке из бота.
+    - **Кто админ:** `ADMIN_TELEGRAM_IDS` в `.env` (telegramId через запятую; свой id — у `@userinfobot`) **или** флаг `users.is_admin` в БД. Единая проверка — `isAdmin(telegramId, dbUser)` в `global/telegram/admins.ts`; права всегда считаются по telegramId из проверенной `initData` (или из апдейта бота), не по данным клиента.
+    - **Бот:** в ответе на `/start` админу добавляется вторая inline-кнопка «Панель управления» — то же Mini App, но открытое сразу на `WEBAPP_URL/admin` (URL-ы собирает `global/telegram/webAppUrl.ts`); плюс в его чат прописывается команда `/admin` (`setMyCommands` со `scope: chat`), чтобы кнопка не терялась в истории. `AdminListener` на `/admin` шлёт ту же кнопку; не-админам команда **молчит** — раздел не афишируем (как 404 на фронте). Общая меню-кнопка у поля ввода остаётся «Магазин» для всех.
+    - **Фронт/API:** `GET /users/me` отдаёт `isAdmin` по тому же правилу — на нём уже стоит гард `requireAdmin` роута `/admin` (не админ → 404, в dev проверка отключена). E2E: обычный пользователь, админ по `.env`, админ по флагу в БД.
+    - **Нюанс деплоя:** сервер (или прокси) должен отдавать `index.html` на `/admin` — иначе Mini App откроется в 404 сервера. Сам доступ к API админки пока не закрыт — это Этап 5.
+
 ## Осталось
 
 ### Этап 4 — фронт: форма гостевого заказа (в основном готово)
@@ -55,9 +61,9 @@
 
 **Авторизация — только через Telegram (решено).** `/admin` и все мутирующие эндпоинты (`POST/PATCH/DELETE /products`, `PATCH /orders/:id/status`, `GET /orders`) должны быть закрыты. Вход без пароля — через Telegram:
 
-- CRM открывается как Mini App из бота (отдельная кнопка/команда, напр. `/admin`), на ПК — через Telegram Desktop.
-- Бэкенд проверяет `initData` (HMAC по `BOT_TOKEN`, плюс свежесть `auth_date`) и сверяет Telegram-юзера с `ADMIN_TELEGRAM_ID` из `.env`; при успехе ставит подписанную httpOnly-куку (`hono/jwt` + `hono/cookie`, без новых зависимостей).
-- Middleware `requireAuth` на бэке (читает куку) + гард роута `/admin` на фронте.
+- ✅ Сделано в Этапе 3: CRM открывается как Mini App из бота (кнопка «Панель управления» в `/start` + команда `/admin`), на ПК — через Telegram Desktop; список админов — `ADMIN_TELEGRAM_IDS`/`users.is_admin`; гард роута `/admin` на фронте по `GET /users/me`.
+- Осталось: бэкенд проверяет `initData` (HMAC по `BOT_TOKEN`, плюс свежесть `auth_date`), сверяет юзера через `isAdmin()` и при успехе ставит подписанную httpOnly-куку (`hono/jwt` + `hono/cookie`, без новых зависимостей).
+- Middleware `requireAuth` на бэке (читает куку) на всех мутирующих эндпоинтах — сейчас они открыты, гард на фронте прячет только UI.
 - Доступ только из Телеграма — независимого входа по ссылке в браузере нет (осознанно). Переиспользует проверку `initData` из Этапа 3.
 
 ### Этап 6 (в самом конце) — доставка и оплата

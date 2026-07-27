@@ -1,8 +1,11 @@
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { sign } from "@telegram-apps/init-data-node";
+import { eq } from "drizzle-orm";
 import { createApp } from "../../app";
 import { resetDatabase } from "../../test/e2e/db";
 import { UserMethods } from "@global/database/methods/user";
+import { db } from "@global/database/DatabaseSingleton";
+import { users } from "@global/database/shema";
 
 const BOT_TOKEN = "123456:TEST_BOT_TOKEN";
 process.env.BOT_TOKEN = BOT_TOKEN;
@@ -22,6 +25,11 @@ function meRequest(initData: string) {
 describe("Users /me E2E", () => {
   beforeEach(async () => {
     await resetDatabase();
+    delete process.env.ADMIN_TELEGRAM_IDS;
+  });
+
+  afterEach(() => {
+    delete process.env.ADMIN_TELEGRAM_IDS;
   });
 
   it("GET /users/me — возвращает телефон из профиля (для предзаполнения)", async () => {
@@ -58,6 +66,32 @@ describe("Users /me E2E", () => {
     expect(res.status).toBe(200);
     expect(me.phone).toBeNull();
     expect(me.firstName).toBe("Новый");
+  });
+
+  it("GET /users/me — обычный пользователь не админ", async () => {
+    const initData = sign({ user: { id: 700010, first_name: "Гость" } } as never, BOT_TOKEN, new Date());
+
+    const me = (await (await meRequest(initData)).json()) as MeResponse;
+    expect(me.isAdmin).toBe(false);
+  });
+
+  it("GET /users/me — id из ADMIN_TELEGRAM_IDS даёт isAdmin (без записи в БД)", async () => {
+    process.env.ADMIN_TELEGRAM_IDS = "700011, 700012";
+
+    const initData = sign({ user: { id: 700012, first_name: "Хозяйка" } } as never, BOT_TOKEN, new Date());
+
+    const me = (await (await meRequest(initData)).json()) as MeResponse;
+    expect(me.isAdmin).toBe(true);
+  });
+
+  it("GET /users/me — флаг is_admin в БД даёт isAdmin", async () => {
+    await UserMethods.upsertByTelegram({ telegramId: 700013, firstName: "Хозяйка" });
+    await db.update(users).set({ isAdmin: true }).where(eq(users.telegramId, 700013));
+
+    const initData = sign({ user: { id: 700013, first_name: "Хозяйка" } } as never, BOT_TOKEN, new Date());
+
+    const me = (await (await meRequest(initData)).json()) as MeResponse;
+    expect(me.isAdmin).toBe(true);
   });
 
   it("GET /users/me — поддельная initData отклоняется (401)", async () => {

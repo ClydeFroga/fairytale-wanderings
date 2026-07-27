@@ -63,6 +63,7 @@ src/
       seed.ts                   # CLI: bun run db:seed
     errors/                     # классы ошибок (AppError + наследники)
     mail/                       # SMTP-уведомление (nodemailer): mailer.ts + orderEmail.ts
+    telegram/                   # initData.ts (проверка Mini App), admins.ts, webAppUrl.ts
     utils/                      # upload, deleteFile, formatPhoneNumber
   utils/
     validators/                 # переиспользуемые zod-схемы (@validators/*)
@@ -106,5 +107,6 @@ E2E через `bun test` (preload в `bunfig.toml`). Тесты лежат ря
 ## Состояние
 
 - Веб-приём заказа: запись в БД со списанием остатка и сохранением имени/контакта — готово. Письмо владелице по SMTP при создании заказа — готово (`global/mail/`, `nodemailer`; шлётся после коммита транзакции, сбой почты не ломает заказ; без `SMTP_*`/`MAIL_TO` тихо пропускается).
-- Бот: пока только регистрация (`/start` + телефон), оформление заказа не реализовано, запуск в `index.ts` закомментирован.
+- Бот (`bot/`, telegraf, запуск в `index.ts`; без `BOT_TOKEN` — тихий пропуск): `/start` регистрирует пользователя и даёт inline-кнопку Mini App, `contact` сохраняет телефон, `/admin` — вход в CRM для админов. Заказы оформляются в Mini App, а не сообщениями бота.
+- Админы: `isAdmin(telegramId, dbUser)` в `global/telegram/admins.ts` — `ADMIN_TELEGRAM_IDS` из `.env` или флаг `users.is_admin`. Используют бот (кнопка «Панель управления») и `GET /users/me`. URL-ы Mini App — `global/telegram/webAppUrl.ts`.
 - Задел под оплату (`status`, `paymentMethod` в `orders`) и доставку СДЭК — на будущее.
