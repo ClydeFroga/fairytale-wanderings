@@ -14,7 +14,7 @@ const stockLabel = computed(() =>
 
 <template>
   <RouterLink
-    :to="`/product/${props.product._id}`"
+    :to="`/product/${props.product.slug}`"
     class="card group flex w-full min-w-0 flex-col overflow-hidden"
   >
     <!-- Image -->

@@ -13,6 +13,7 @@ import { imageUrl } from '@/scripts/images'
 // Отображаемая модель товара в CRM (плоская, готовая к рендеру таблицы/формы).
 export type CrmProduct = {
   id: string
+  slug: string
   name: string
   category: string // отображаемое имя категории (join)
   categoryId: string | null
@@ -75,6 +76,7 @@ function detailsToString(details: IProduct['details'] | undefined): string {
 function fromApi(p: IProduct): CrmProduct {
   return {
     id: p._id,
+    slug: p.slug,
     name: p.name,
     category: p.category ?? 'Без категории',
     categoryId: p.categoryId,

@@ -62,6 +62,7 @@ function stockColor(stock: number): string {
         </div>
         <div class="product-meta">
           <div class="product-name">{{ p.name }}</div>
+          <div class="product-slug">/product/{{ p.slug }}</div>
           <div class="product-details">{{ p.details }}</div>
         </div>
       </div>
@@ -177,6 +178,11 @@ function stockColor(stock: number): string {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.product-slug {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  color: #a08a6a;
 }
 .product-details {
   font-size: 12px;

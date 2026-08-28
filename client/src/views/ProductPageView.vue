@@ -1,15 +1,19 @@
 <script lang="ts" setup>
 import Header from '@/components/global/Header.vue'
 import type { IProduct } from '@/types/product'
-import { computed, onMounted, ref, type Ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, ref, watch, type Ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { getProduct } from '@/api/products'
+import { ApiError } from '@/api/client'
 import AddToBusketButton from '@/components/global/AddToBusketButton.vue'
 import Gallery from '@/components/global/Gallery.vue'
 import { imageUrls } from '@/scripts/images'
 
+const SHOP_NAME = 'Сказка странствий'
+
 const product: Ref<IProduct> = ref({
   _id: '',
+  slug: '',
   name: '',
   price: 0,
   image: [],
@@ -28,23 +32,44 @@ const product: Ref<IProduct> = ref({
 
 const props = defineProps<{ product?: IProduct }>()
 
-// Пути из БД относительные — приводим к URL API (см. scripts/images).
 const gallery = computed(() => imageUrls(product.value.image))
-
 const route = useRoute()
+const router = useRouter()
 
-onMounted(async () => {
+async function load() {
   if (props.product) {
     product.value = props.product
     return
   }
 
   try {
-    product.value = await getProduct(String(route.params.id))
+    product.value = await getProduct(String(route.params.slug))
   } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      await router.replace({
+        name: 'not-found',
+        params: { pathMatch: route.path.slice(1).split('/') },
+      })
+      return
+    }
     console.error(error)
   }
-})
+}
+
+watch(
+  () => [route.params.slug, props.product] as const,
+  () => {
+    void load()
+  },
+  { immediate: true },
+)
+
+watch(
+  () => product.value.name,
+  (name) => {
+    if (name) document.title = `${name} — ${SHOP_NAME}`
+  },
+)
 </script>
 
 <template>
