@@ -1,11 +1,14 @@
 import { DatabaseSingleton } from '@global/database/DatabaseSingleton'
+import { warnIfMissingPublicSiteUrl } from '@global/seo/config'
 import { Bot } from './bot/main'
 import { createServerApp } from './app'
-import { serveClient, serveClientIndex, serveUploads } from './middleware/staticFiles'
+import { serveClient, serveUploads } from './middleware/staticFiles'
+import { serveClientIndex } from './middleware/seoHtml'
 
 const app = createServerApp()
 
 await DatabaseSingleton.getInstance().connect()
+warnIfMissingPublicSiteUrl()
 
 async function startBot() {
   const token = process.env.BOT_TOKEN

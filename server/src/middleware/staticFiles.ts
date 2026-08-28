@@ -8,11 +8,11 @@ import { Upload } from '@global/utils/upload'
 //
 // Пути считаем от файла модуля, а не от cwd, чтобы сервер одинаково работал и из
 // корня репозитория (`bun run start`), и из папки server (`bun run dev`).
-const CLIENT_DIST = path.resolve(
+export const CLIENT_DIST = path.resolve(
   process.env.CLIENT_DIST || path.join(import.meta.dir, '../../../client/dist'),
 )
 
-const INDEX_HTML = path.join(CLIENT_DIST, 'index.html')
+export const INDEX_HTML = path.join(CLIENT_DIST, 'index.html')
 
 /**
  * Отдаёт файл из `root`, если он там есть; иначе передаёт запрос дальше — на
@@ -56,20 +56,3 @@ export const serveClient = serveFrom(CLIENT_DIST, (relative) => {
   if (relative.endsWith('index.html')) return 'no-cache'
   return 'public, max-age=3600'
 })
-
-/**
- * SPA-фоллбэк: `/admin`, `/product/:id` и остальные роуты vue-router существуют
- * только в браузере, на сервере им соответствует один index.html (без этого
- * Mini App открывался бы на 404 сервера). Отдаём его только на навигационные
- * запросы — промах по API должен остаться 404, а не превратиться в HTML.
- */
-export const serveClientIndex: MiddlewareHandler = async (c, next) => {
-  if (c.req.method !== 'GET') return next()
-  if (!c.req.header('accept')?.includes('text/html')) return next()
-
-  const index = Bun.file(INDEX_HTML)
-  if (!(await index.exists())) return next() // клиент не собран — в dev его отдаёт vite
-
-  // index.html ссылается на хешированные файлы, поэтому сам не кэшируется.
-  return new Response(index, { headers: { 'Cache-Control': 'no-cache' } })
-}
