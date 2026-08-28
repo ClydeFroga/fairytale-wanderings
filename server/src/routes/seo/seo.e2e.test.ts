@@ -1,8 +1,12 @@
-import { describe, expect, it, beforeEach } from 'bun:test'
+import { describe, expect, it, beforeAll, beforeEach, afterAll } from 'bun:test'
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { createApp } from '../../app'
 import { resetDatabase } from '../../test/e2e/db'
 import type { IProduct } from '@global/database/shema'
 import { createServeClientIndex } from '../../middleware/seoHtml'
+import { serveClient } from '../../middleware/staticFiles'
 import { adminHeaders } from '../../test/e2e/auth'
 
 process.env.PUBLIC_SITE_URL = 'http://localhost:3000'
@@ -131,5 +135,54 @@ describe('SEO HTML / sitemap', () => {
     expect(cart.status).toBe(200)
     expect(admin.headers.get('x-robots-tag')).toBe('noindex')
     expect(cart.headers.get('x-robots-tag')).toBe('noindex')
+  })
+})
+
+describe('SEO HTML через serveClient + serveClientIndex', () => {
+  let distDir: string
+  let prevClientDist: string | undefined
+  let app: ReturnType<typeof createApp>
+
+  beforeAll(() => {
+    distDir = mkdtempSync(path.join(tmpdir(), 'seo-dist-'))
+    writeFileSync(path.join(distDir, 'index.html'), FIXTURE)
+    prevClientDist = process.env.CLIENT_DIST
+    process.env.CLIENT_DIST = distDir
+
+    app = createApp()
+    app.use('/*', serveClient)
+    app.use(
+      '/*',
+      createServeClientIndex(async () => FIXTURE),
+    )
+  })
+
+  afterAll(() => {
+    if (prevClientDist === undefined) delete process.env.CLIENT_DIST
+    else process.env.CLIENT_DIST = prevClientDist
+    rmSync(distDir, { recursive: true, force: true })
+  })
+
+  function htmlGet(path: string) {
+    return app.fetch(
+      new Request(`http://localhost${path}`, {
+        headers: { accept: 'text/html' },
+      }),
+    )
+  }
+
+  it('GET / и /?category=toys инжектят SEO, а не сырой index.html', async () => {
+    const home = await htmlGet('/')
+    const homeHtml = await home.text()
+    expect(home.status).toBe(200)
+    expect(homeHtml).toContain('<title>Сказка странствий</title>')
+    expect(homeHtml).toContain('rel="canonical" href="http://localhost:3000/"')
+    expect(homeHtml).not.toContain('<!--seo-head-->')
+
+    const filtered = await htmlGet('/?category=toys')
+    const filteredHtml = await filtered.text()
+    expect(filtered.status).toBe(200)
+    expect(filteredHtml).toContain('name="robots" content="noindex"')
+    expect(filteredHtml).toContain('rel="canonical" href="http://localhost:3000/"')
   })
 })
