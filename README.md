@@ -71,7 +71,10 @@ POSTGRES_PASSWORD=fairytale
 POSTGRES_DB=fairytale
 UPLOAD_PATH=./test_uploads
 BOT_TOKEN=
+PUBLIC_SITE_URL=
 ```
+
+Без `PUBLIC_SITE_URL` превью ссылок в мессенджерах не соберёт абсолютный `og:image`.
 
 ### 3. `client/.env` — адрес API для фронта
 
