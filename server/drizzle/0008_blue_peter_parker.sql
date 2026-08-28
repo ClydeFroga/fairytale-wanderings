@@ -36,23 +36,34 @@ BEGIN
 END;
 $$;
 --> statement-breakpoint
-WITH ranked AS (
-  SELECT
-    id,
-    COALESCE(NULLIF(tmp_product_slugify(name), ''), 'product') AS base_slug,
-    ROW_NUMBER() OVER (
-      PARTITION BY COALESCE(NULLIF(tmp_product_slugify(name), ''), 'product')
-      ORDER BY id
-    ) AS rn
-  FROM products
-)
-UPDATE products AS p
-SET slug = CASE
-  WHEN r.rn = 1 THEN r.base_slug
-  ELSE r.base_slug || '-' || r.rn::text
-END
-FROM ranked AS r
-WHERE p.id = r.id;
+DO $backfill$
+DECLARE
+  product_row record;
+  base_slug text;
+  candidate_slug text;
+  suffix integer;
+BEGIN
+  CREATE TEMP TABLE tmp_product_used_slugs (
+    slug text PRIMARY KEY
+  ) ON COMMIT DROP;
+
+  FOR product_row IN SELECT id, name FROM products ORDER BY id LOOP
+    base_slug := COALESCE(NULLIF(tmp_product_slugify(product_row.name), ''), 'product');
+    candidate_slug := base_slug;
+    suffix := 2;
+
+    WHILE EXISTS (
+      SELECT 1 FROM tmp_product_used_slugs WHERE slug = candidate_slug
+    ) LOOP
+      candidate_slug := base_slug || '-' || suffix::text;
+      suffix := suffix + 1;
+    END LOOP;
+
+    UPDATE products SET slug = candidate_slug WHERE id = product_row.id;
+    INSERT INTO tmp_product_used_slugs (slug) VALUES (candidate_slug);
+  END LOOP;
+END;
+$backfill$;
 --> statement-breakpoint
 ALTER TABLE "products" ALTER COLUMN "slug" SET NOT NULL;
 --> statement-breakpoint

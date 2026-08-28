@@ -10,7 +10,9 @@ export const seedCategoriesData: INewCategory[] = [
 // Сид товаров. `categorySlug` резолвится в categoryId при вставке (см. seedProducts.ts).
 // weight — граммы, length/width/height — сантиметры в упакованном виде: по ним
 // считается доставка СДЭК (см. client/src/scripts/parcel.ts).
-export type SeedProduct = Omit<INewProduct, "categoryId"> & { categorySlug: string };
+export type SeedProduct = Omit<INewProduct, "categoryId" | "slug"> & {
+  categorySlug: string;
+};
 
 export const seedProductsData: SeedProduct[] = [
   {
