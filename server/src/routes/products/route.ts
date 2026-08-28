@@ -12,6 +12,7 @@ import { Upload } from '@global/utils/upload'
 import { AppError, ProductNotFoundError, TooManyImagesError } from '@global/errors'
 import { requireAdmin } from '../../middleware/requireAdmin'
 import { uniqueSlug } from '@global/utils/slugify'
+import { isUuid } from '@global/utils/isUuid'
 
 const app = new Hono()
 
@@ -25,9 +26,11 @@ app.get('/', listProductsValidator, async (c) => {
 
 app.get('/:id', async (c) => {
   const { id } = c.req.param()
-  const product = await ProductMethods.getById(id)
+  const product = isUuid(id)
+    ? await ProductMethods.getById(id)
+    : await ProductMethods.getBySlug(id)
 
-  if (!product) {
+  if (!product || !product.isActive) {
     throw new ProductNotFoundError(id)
   }
 

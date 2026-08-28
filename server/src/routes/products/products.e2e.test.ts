@@ -89,6 +89,28 @@ describe("Products E2E", () => {
     expect(data.name).toBe(product.name);
   });
 
+  it("GET /products/:id — тот же товар по slug и по uuid", async () => {
+    const product = products[0]!;
+    const byId = await app.fetch(new Request(`http://localhost/products/${product._id}`));
+    const bySlug = await app.fetch(new Request(`http://localhost/products/${product.slug}`));
+
+    expect(byId.status).toBe(200);
+    expect(bySlug.status).toBe(200);
+    expect(await bySlug.json()).toEqual(await byId.json());
+  });
+
+  it("GET /products/:id — скрытый товар 404 и по uuid, и по slug", async () => {
+    const created = (await (
+      await createProduct([], { name: "Скрытый", isActive: "false" })
+    ).json()) as IProduct;
+
+    const byId = await app.fetch(new Request(`http://localhost/products/${created._id}`));
+    const bySlug = await app.fetch(new Request(`http://localhost/products/${created.slug}`));
+
+    expect(byId.status).toBe(404);
+    expect(bySlug.status).toBe(404);
+  });
+
   it("GET /products — игнорирует некорректные query-фильтры", async () => {
     const res = await app.fetch(
       new Request(
@@ -125,6 +147,14 @@ describe("Products E2E", () => {
     );
 
     expect(res.status).toBe(404);
+  });
+
+  it("POST /products — slug из названия, коллизия даёт -2", async () => {
+    const first = (await (await createProduct([], { name: "Посуда" })).json()) as IProduct;
+    const second = (await (await createProduct([], { name: "Посуда" })).json()) as IProduct;
+
+    expect(first.slug).toBe("posuda");
+    expect(second.slug).toBe("posuda-2");
   });
 
   it("POST /products — принимает несколько картинок и сохраняет их порядок", async () => {
@@ -186,6 +216,18 @@ describe("Products E2E", () => {
 
     expect(updated.name).toBe("Новое имя");
     expect(updated.image).toEqual(created.image);
+  });
+
+  it("PATCH /products/:id — переименование не меняет slug", async () => {
+    const created = (await (await createProduct([], { name: "Лиса" })).json()) as IProduct;
+    expect(created.slug).toBe("lisa");
+
+    const form = new FormData();
+    form.set("name", "Рыжая лиса");
+    const updated = (await (await patchProduct(created._id, form)).json()) as IProduct;
+
+    expect(updated.name).toBe("Рыжая лиса");
+    expect(updated.slug).toBe("lisa");
   });
 
   it("PATCH /products/:id — чужой путь в existingImages игнорируется", async () => {
