@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { CategoryMethods } from "@global/database/methods/category";
 import type { ICategory } from "@global/database/shema";
 import { CategoryNotFoundError, DuplicateCategoryError } from "@global/errors";
-import { slugify } from "@global/utils/slugify";
+import { uniqueSlug } from "@global/utils/slugify";
 import { createCategoryValidator, updateCategoryValidator } from "./validator";
 import { requireAdmin } from "../../middleware/requireAdmin";
 
@@ -71,17 +71,12 @@ function assertNameFree(existing: ICategory[], name: string, exceptId?: string) 
   if (taken) throw new DuplicateCategoryError(name);
 }
 
-// Свободный slug: из названия, а если такой уже занят (разные названия могут
-// дать одинаковую транслитерацию) — с числовым суффиксом.
 function freeSlug(existing: ICategory[], name: string): string {
-  const taken = new Set(existing.map((category) => category.slug));
-  const base = slugify(name) || "category";
-
-  if (!taken.has(base)) return base;
-
-  let suffix = 2;
-  while (taken.has(`${base}-${suffix}`)) suffix++;
-  return `${base}-${suffix}`;
+  return uniqueSlug(
+    name,
+    existing.map((category) => category.slug),
+    'category',
+  )
 }
 
 function nextSortOrder(existing: ICategory[]): number {

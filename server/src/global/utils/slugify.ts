@@ -25,3 +25,17 @@ export function slugify(value: string): string {
     .slice(0, MAX_SLUG_LENGTH)
     .replace(/^-+|-+$/g, "");
 }
+
+/**
+ * Свободный slug: транслит названия, при занятости — суффикс `-2`, `-3`, …
+ * `fallback` — если `slugify` вернул пустую строку (одни эмодзи и т.п.).
+ */
+export function uniqueSlug(name: string, taken: Iterable<string>, fallback: string): string {
+  const takenSet = taken instanceof Set ? taken : new Set(taken)
+  const base = slugify(name) || fallback
+  if (!takenSet.has(base)) return base
+
+  let suffix = 2
+  while (takenSet.has(`${base}-${suffix}`)) suffix++
+  return `${base}-${suffix}`
+}
