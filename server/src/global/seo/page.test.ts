@@ -27,4 +27,9 @@ describe('matchSeoPath', () => {
   it('неизвестный путь — missing', () => {
     expect(matchSeoPath('/nope', '').type).toBe('missing')
   })
+
+  it('сломанный percent-encoding в slug — missing, не throw', () => {
+    expect(matchSeoPath('/product/%E0%A4%A', '')).toEqual({ type: 'missing' })
+    expect(matchSeoPath('/product/%', '')).toEqual({ type: 'missing' })
+  })
 })

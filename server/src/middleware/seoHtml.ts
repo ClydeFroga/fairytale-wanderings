@@ -16,6 +16,9 @@ import {
 import { matchSeoPath } from '@global/seo/page'
 import { isUuid } from '@global/utils/isUuid'
 import { INDEX_HTML } from './staticFiles'
+import { wantsHtml } from './wantsHtml'
+
+export { wantsHtml }
 
 export function htmlHeaders(noindex: boolean): HeadersInit {
   const headers: Record<string, string> = {
@@ -109,7 +112,7 @@ export function createServeClientIndex(
 ): MiddlewareHandler {
   return async (c, next) => {
     if (c.req.method !== 'GET') return next()
-    if (!c.req.header('accept')?.includes('text/html')) return next()
+    if (!wantsHtml(c.req.header('accept'))) return next()
 
     const index = await readIndex()
     if (index == null) return next()
@@ -151,7 +154,7 @@ export function createServeClientIndex(
         }
       } catch (error) {
         console.error('SEO: не удалось прочитать товар', error)
-        return new Response(index, { headers: { 'Cache-Control': 'no-cache' } })
+        return new Response(index, { headers: htmlHeaders(false) })
       }
     }
 

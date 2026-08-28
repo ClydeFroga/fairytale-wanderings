@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { join } from 'node:path'
 import { escapeHtml, injectSeoHtml } from './html'
 import type { SeoDocument } from './html'
 
@@ -46,5 +47,46 @@ describe('injectSeoHtml', () => {
     expect(html).toContain('name="robots" content="noindex"')
     expect(html).not.toContain('<!--seo-head-->')
     expect(html).not.toContain('<!--seo-body-->')
+  })
+
+  it('не портит title и description с символами $$ и $&', () => {
+    const doc: SeoDocument = {
+      title: 'Товар $$ $& — Сказка странствий',
+      description: 'Цена $$',
+      canonicalPath: '/product/sale',
+      noindex: false,
+      ogImagePath: null,
+      jsonLd: null,
+      crawlerHtml: `<div class="seo-crawler" style="display:none"><h1>Товар $$ $&</h1></div>`,
+    }
+    const html = injectSeoHtml(INDEX, doc)
+    expect(html).toContain('<title>Товар $$ $&amp; — Сказка странствий</title>')
+    expect(html).toContain('content="Цена $$"')
+    expect(html).toContain('<h1>Товар $$ $&</h1>')
+  })
+
+  it('в реальном client/index.html оставляет один набор OG с данными товара', async () => {
+    const indexPath = join(import.meta.dir, '../../../../client/index.html')
+    const realIndex = await Bun.file(indexPath).text()
+    const doc: SeoDocument = {
+      title: 'Лиса — Сказка странствий',
+      description: 'Игрушка',
+      canonicalPath: '/product/lisa',
+      noindex: false,
+      ogImagePath: 'http://localhost:3000/images/x.webp',
+      jsonLd: null,
+      crawlerHtml: '',
+    }
+    const html = injectSeoHtml(realIndex, doc)
+
+    expect(html).toContain('property="og:title" content="Лиса — Сказка странствий"')
+    expect(html).toContain('property="og:image" content="http://localhost:3000/images/x.webp"')
+    expect(html).not.toMatch(/property="og:title"[^>]*content="Сказка странствий"/)
+    expect(html).not.toContain('content="/og.jpg"')
+    expect((html.match(/property="og:title"/g) ?? []).length).toBe(1)
+    expect((html.match(/property="og:image"/g) ?? []).length).toBe(1)
+    expect((html.match(/property="og:description"/g) ?? []).length).toBe(1)
+    expect((html.match(/name="twitter:card"/g) ?? []).length).toBe(1)
+    expect(html).toContain('property="og:type" content="website"')
   })
 })

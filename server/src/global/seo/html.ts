@@ -81,13 +81,17 @@ function extraHead(doc: SeoDocument): string {
 
 export function injectSeoHtml(indexHtml: string, doc: SeoDocument): string {
   let html = indexHtml
-  html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(doc.title)}</title>`)
+  html = html.replace(/<meta\b[^>]*\bproperty=["']og:title["'][^>]*>\s*/gi, '')
+  html = html.replace(/<meta\b[^>]*\bproperty=["']og:description["'][^>]*>\s*/gi, '')
+  html = html.replace(/<meta\b[^>]*\bproperty=["']og:image["'][^>]*>\s*/gi, '')
+  html = html.replace(/<meta\b[^>]*\bname=["']twitter:card["'][^>]*>\s*/gi, '')
+  html = html.replace(/<title>[\s\S]*?<\/title>/, () => `<title>${escapeHtml(doc.title)}</title>`)
   html = html.replace(
     /<meta\s+name="description"\s+content="[^"]*"\s*\/?>/,
-    `<meta name="description" content="${escapeHtml(doc.description)}">`,
+    () => `<meta name="description" content="${escapeHtml(doc.description)}">`,
   )
-  html = html.replace('<!--seo-head-->', extraHead(doc))
-  html = html.replace('<!--seo-body-->', doc.crawlerHtml)
+  html = html.replace('<!--seo-head-->', () => extraHead(doc))
+  html = html.replace('<!--seo-body-->', () => doc.crawlerHtml)
   return html
 }
 

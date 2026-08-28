@@ -17,7 +17,11 @@ export function matchSeoPath(pathname: string, search: string): SeoPage {
   }
   const match = path.match(/^\/product\/([^/]+)$/)
   if (match?.[1]) {
-    return { type: 'product', param: decodeURIComponent(match[1]) }
+    try {
+      return { type: 'product', param: decodeURIComponent(match[1]) }
+    } catch {
+      return { type: 'missing' }
+    }
   }
   return { type: 'missing' }
 }

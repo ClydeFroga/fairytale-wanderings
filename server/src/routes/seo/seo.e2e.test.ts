@@ -1,10 +1,11 @@
-import { describe, expect, it, beforeAll, beforeEach, afterAll } from 'bun:test'
+import { describe, expect, it, beforeAll, beforeEach, afterAll, spyOn } from 'bun:test'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createApp } from '../../app'
 import { resetDatabase } from '../../test/e2e/db'
 import type { IProduct } from '@global/database/shema'
+import { ProductMethods } from '@global/database/methods/product'
 import { createServeClientIndex } from '../../middleware/seoHtml'
 import { serveClient } from '../../middleware/staticFiles'
 import { adminHeaders } from '../../test/e2e/auth'
@@ -135,6 +136,59 @@ describe('SEO HTML / sitemap', () => {
     expect(cart.status).toBe(200)
     expect(admin.headers.get('x-robots-tag')).toBe('noindex')
     expect(cart.headers.get('x-robots-tag')).toBe('noindex')
+  })
+
+  it('GET / с Accept */* — 200 и canonical', async () => {
+    const res = await app.fetch(
+      new Request('http://localhost/', { headers: { accept: '*/*' } }),
+    )
+    const html = await res.text()
+    expect(res.status).toBe(200)
+    expect(html).toContain('rel="canonical"')
+  })
+
+  it('GET / без Accept — 200 и canonical', async () => {
+    const res = await app.fetch(new Request('http://localhost/'))
+    const html = await res.text()
+    expect(res.status).toBe(200)
+    expect(html).toContain('rel="canonical"')
+  })
+
+  it('GET / с Accept application/json не отдаёт инжект HTML', async () => {
+    const res = await app.fetch(
+      new Request('http://localhost/', { headers: { accept: 'application/json' } }),
+    )
+    const body = await res.text()
+    expect(res.status).not.toBe(200)
+    expect(body).not.toContain('rel="canonical"')
+  })
+
+  it('карточка с Accept */* — 200 и title товара', async () => {
+    const teddy = products.find((p) => p.name === 'Вязаный мишка Тедди')!
+    const res = await app.fetch(
+      new Request(`http://localhost/product/${teddy.slug}`, {
+        headers: { accept: '*/*' },
+      }),
+    )
+    const html = await res.text()
+    expect(res.status).toBe(200)
+    expect(html).toContain(`${teddy.name} — Сказка странствий`)
+  })
+
+  it('ошибка БД на карточке — 200 HTML с Content-Type, сырой index', async () => {
+    const spy = spyOn(ProductMethods, 'getBySlug').mockImplementation(() => {
+      throw new Error('db down')
+    })
+    try {
+      const teddy = products.find((p) => p.name === 'Вязаный мишка Тедди')!
+      const res = await htmlGet(`/product/${teddy.slug}`)
+      const html = await res.text()
+      expect(res.status).toBe(200)
+      expect(res.headers.get('content-type')).toContain('text/html')
+      expect(html).toContain('<!--seo-head-->')
+    } finally {
+      spy.mockRestore()
+    }
   })
 })
 
