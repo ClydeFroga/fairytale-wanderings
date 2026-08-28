@@ -1,7 +1,7 @@
 import { DatabaseSingleton } from '@global/database/DatabaseSingleton'
 import { Bot } from './bot/main'
-import { serveStatic } from 'hono/bun'
 import { createServerApp } from './app'
+import { serveClient, serveClientIndex, serveUploads } from './middleware/staticFiles'
 
 const app = createServerApp()
 
@@ -28,15 +28,11 @@ async function startBot() {
 
 startBot()
 
-app.use(
-  '/images/*',
-  serveStatic({
-    root: 'test_uploads',
-    onNotFound: (filePath, c) => {
-      console.log(`${filePath} is not found, you access ${c.req.path}`)
-    },
-  }),
-)
+// Статика регистрируется после API-роутов: совпавший роут отвечает сам, а всё
+// остальное сначала ищется на диске и в последнюю очередь отдаётся как index.html.
+app.use('/images/*', serveUploads)
+app.use('/*', serveClient)
+app.use('/*', serveClientIndex)
 
 export default {
   port: process.env.PORT || 3000,

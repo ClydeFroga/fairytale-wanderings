@@ -81,6 +81,39 @@ VITE_API_URL=http://localhost:3000
 
 > Важно: разница в `DATABASE_URL` между файлами. Внутри docker — хост `postgres:5432`; с хоста (миграции, `bun run dev`) — `localhost:15432`.
 
+### Доставка СДЭК (необязательно)
+
+На странице корзины покупатель выбирает пункт выдачи на карте — виджет
+`@cdek-it/widget`. Ходит он не в СДЭК напрямую, а в наш сервер (`/cdek/service`),
+поэтому креды интеграции остаются на бэкенде. Нужны три вещи в `server/.env`
+(в docker — в корневом env-файле):
+
+```env
+CDEK_ACCOUNT=              # аккаунт интеграции из ЛК СДЭК (не логин от кабинета)
+CDEK_SECURE_PASSWORD=      # пароль интеграции оттуда же
+CDEK_API_URL=https://api.edu.cdek.ru/v2   # тестовый контур; боевой — https://api.cdek.ru/v2
+CDEK_YANDEX_MAPS_API_KEY=  # ключ JS API Яндекс.Карт — на них рисуется карта ПВЗ
+CDEK_FROM_CITY=Новосибирск # город-отправитель (показывается в виджете)
+CDEK_FROM_CITY_CODE=270    # его код в справочнике СДЭК — по нему считаются тарифы
+```
+
+Код города обязателен: калькулятор СДЭК не резолвит отправителя по названию
+(отвечает 400), поэтому без кода виджет не включается. Найти код — запросом к
+справочнику через наш же прокси:
+
+```bash
+curl "http://localhost:3000/cdek/service?action=cities&country_codes=RU&city=Красноярск"
+```
+
+Пока переменные пустые, витрина работает как раньше: виджета нет, покупатель
+вводит адрес доставки текстом. Остальные настройки (город на карте по умолчанию,
+коробка по умолчанию) — в `server/.env.example`.
+
+Стоимость доставки считается по составу корзины: у товара в CRM есть вес и
+габариты (в упакованном виде), у кого не заполнены — берётся коробка из
+`CDEK_PARCEL_*`. Габариты важны не меньше веса: СДЭК тарифицирует по максимуму
+из физического и объёмного веса (Д×Ш×В/5000 кг).
+
 ---
 
 ## База данных
@@ -105,12 +138,45 @@ bun run db:push       # запушить схему без файла мигра
 
 ## Запуск
 
+### Разработка (двумя процессами)
+
 | Что | Команда (из папки) | URL |
 |---|---|---|
 | Сервер | `bun run dev` (`server/`) | http://localhost:3000 |
 | Клиент | `bun run dev` (`client/`) | http://localhost:5173 |
 
 Проверка API: `http://localhost:3000/products` должен вернуть JSON со списком товаров.
+
+### Целиком в docker (как в проде)
+
+Один контейнер отдаёт и API, и собранный сайт: сервер раздаёт `client/dist`, а все
+неизвестные пути возвращает как `index.html` — без этого `/admin` и `/product/:id`
+открывались бы на 404 сервера. Миграции применяются при старте контейнера.
+
+```bash
+docker compose build        # собирает клиент и образ
+docker compose up -d        # postgres + приложение → http://localhost:3000
+docker compose logs -f app
+```
+
+Две переменные читает **сам docker compose** (для подстановки `${...}`), а не
+`env_file`, — их задают в окружении оболочки или в корневом `.env`:
+
+| Переменная | Зачем | По умолчанию |
+|---|---|---|
+| `VITE_API_URL` | адрес API вшивается в бандл **на сборке** — в проде это домен магазина | `http://localhost:3000` |
+| `APP_PORT` | порт магазина на хосте (внутри контейнера всегда 3000) | `3000` |
+
+```bash
+# порт 3000 занят локальным dev-сервером — поднять на другом
+APP_PORT=3010 docker compose up -d
+
+# сборка под прод-домен
+VITE_API_URL=https://shop.example.com docker compose build
+```
+
+Картинки товаров живут в томе `uploads` (в контейнере — `/app/uploads`), поэтому
+переживают пересборку образа.
 
 ---
 
@@ -130,8 +196,8 @@ cd client && bun run type-check && bun run build
 
 | Сервис | Порт |
 |---|---|
-| Клиент (Vite) | 5173 |
-| Сервер (Hono) | 3000 |
+| Клиент (Vite, только dev) | 5173 |
+| Сервер (Hono) — API и сайт | 3000 (на хосте — `APP_PORT`) |
 | PostgreSQL (с хоста) | 15432 |
 
 CORS на сервере уже разрешает `http://localhost:5173`.
@@ -143,7 +209,8 @@ CORS на сервере уже разрешает `http://localhost:5173`.
 - **Контейнер БД в бесконечном рестарте, в логах `data directory ... incompatible` или `unused mount/volume`.** Том инициализирован другой версией Postgres. Лечится сносом тома (данные в dev не жалко): `docker compose down -v && docker compose up -d postgres`. Для PG18+ том монтируется на `/var/lib/postgresql` (уже настроено в `compose.yml`).
 - **`Could not find a declaration file for module 'zod'` / битые типы.** Неполная установка зависимостей. Удалить `node_modules` и переустановить: `Remove-Item -Recurse -Force node_modules; bun install` (PowerShell) или `rm -rf node_modules && bun install`.
 - **`Could not load the "sharp" module`.** Не встал нативный бинарник sharp под платформу — переустановить зависимости (`bun install`), при необходимости с пересборкой optional-зависимостей.
-- **Порт занят (3000/5173/15432).** Поменять `PORT` (server/.env), порт Vite (`client/vite.config.ts`) или `POSTGRES_PORT` (.env.development).
+- **Порт занят (3000/5173/15432).** Поменять `PORT` (server/.env), порт Vite (`client/vite.config.ts`) или `POSTGRES_PORT` (.env.development). Для docker — `APP_PORT=3010 docker compose up -d`.
+- **В docker сайт открывается, но пустой, а в консоли ошибки запросов к API.** Образ собран с чужим `VITE_API_URL` (адрес вшивается на сборке) — пересобрать: `VITE_API_URL=<адрес магазина> docker compose build`.
 - **Сервер не видит БД (`ECONNREFUSED`).** Проверь, что в `server/.env` хост `localhost:15432` (а не `postgres`), и контейнер поднят.
 
 ---
@@ -156,7 +223,8 @@ CORS на сервере уже разрешает `http://localhost:5173`.
 ├─ server/           # Bun + Hono + Drizzle  (см. server/CLAUDE.md)
 │  ├─ src/
 │  └─ drizzle/       # SQL-миграции
-├─ compose.yml       # PostgreSQL
+├─ Dockerfile        # сборка клиента + образ приложения (bun)
+├─ compose.yml       # приложение + PostgreSQL
 ├─ PLAN.md           # дорожная карта
 └─ README.md
 ```

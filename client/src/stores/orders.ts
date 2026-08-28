@@ -4,6 +4,7 @@ import {
   getOrders,
   updateOrderStatus,
   ORDER_FLOW,
+  type DeliveryMethod,
   type IOrder,
   type OrderStatus,
   type OrderTelegram,
@@ -22,6 +23,7 @@ export type CrmOrder = {
   telegram: OrderTelegram | null
   telegramLink: string | null // ссылка на личку, если покупатель оставил username
   address: string
+  delivery: string // способ доставки: ПВЗ с кодом и стоимость (если выбран СДЭК)
   date: string
   total: string
   summary: string
@@ -45,6 +47,23 @@ function formatDate(iso: string): string {
   })
 }
 
+const DELIVERY_LABEL: Record<DeliveryMethod, string> = {
+  cdek_office: 'СДЭК, пункт выдачи',
+  cdek_door: 'СДЭК, курьером',
+  manual: 'Адрес покупателя',
+}
+
+// Способ доставки строкой: код ПВЗ нужен, чтобы оформить отправку, цена —
+// справочная (её показал виджет покупателю, в сумму заказа она не входит).
+function deliveryLabel(order: IOrder): string {
+  if (!order.deliveryMethod) return ''
+
+  const point = order.deliveryPointCode ? ` (${order.deliveryPointCode})` : ''
+  const price = order.deliveryPrice ? ` · доставка ${formatPrice(order.deliveryPrice)}` : ''
+
+  return `${DELIVERY_LABEL[order.deliveryMethod] ?? order.deliveryMethod}${point}${price}`
+}
+
 function itemsSummary(items: IOrder['items']): string {
   const count = items.reduce((sum, item) => sum + item.quantity, 0)
   if (count === 1) return '1 позиция'
@@ -66,6 +85,7 @@ function fromApi(order: IOrder): CrmOrder {
     // Написать можно только по username; по одному id ссылку не построить.
     telegramLink: order.telegram?.username ? `https://t.me/${order.telegram.username}` : null,
     address: order.deliveryAddress || '',
+    delivery: deliveryLabel(order),
     date: formatDate(order.createdAt),
     total: formatPrice(order.totalPrice),
     summary: itemsSummary(items),

@@ -14,7 +14,9 @@ const corsMiddleware = cors({
   origin: allowedOrigins,
   allowHeaders: ["Content-Type", "Authorization"],
   allowMethods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-  exposeHeaders: ["Content-Length", "X-Kuma-Revision"],
+  // X-Total-Elements читает виджет СДЭК (постраничная загрузка ПВЗ) — в dev
+  // сайт и API на разных портах, без expose заголовок до него не доедет.
+  exposeHeaders: ["Content-Length", "X-Kuma-Revision", "X-Total-Elements"],
   maxAge: 600,
   credentials: true,
 });

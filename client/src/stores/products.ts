@@ -18,6 +18,11 @@ export type CrmProduct = {
   categoryId: string | null
   price: number
   stock: number
+  // Параметры посылки (вес в граммах, габариты в см); null — не заполнено.
+  weight: number | null
+  length: number | null
+  width: number | null
+  height: number | null
   isActive: boolean
   details: string // склеенная подпись для таблицы
   detailsMap: Record<string, string> // исходный объект (для формы)
@@ -34,6 +39,10 @@ export type ProductDraft = {
   description: string
   price: string
   stock: string
+  weight: string
+  length: string
+  width: string
+  height: string
   categoryId: string
   details: DetailRow[]
   isActive: boolean
@@ -71,6 +80,10 @@ function fromApi(p: IProduct): CrmProduct {
     categoryId: p.categoryId,
     price: p.price,
     stock: p.stock,
+    weight: p.weight,
+    length: p.length,
+    width: p.width,
+    height: p.height,
     isActive: p.isActive,
     details: detailsToString(p.details),
     detailsMap: p.details ?? {},
@@ -83,6 +96,12 @@ function fromApi(p: IProduct): CrmProduct {
 /** Обложка товара для списка — первая картинка галереи. */
 export function coverUrl(product: CrmProduct): string | undefined {
   return imageUrl(product.images[0])
+}
+
+// Необязательное число из формы: пусто — null (сервер очистит колонку).
+function optionalNumber(value: string): number | null {
+  const parsed = parseInt(value, 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
 }
 
 // Черновик формы → тело запроса (details-строки → объект, числа из строк).
@@ -99,6 +118,10 @@ function draftToInput(draft: ProductDraft): ProductInput {
     categoryId: draft.categoryId,
     isActive: draft.isActive,
     stock: parseInt(draft.stock, 10) || 0,
+    weight: optionalNumber(draft.weight),
+    length: optionalNumber(draft.length),
+    width: optionalNumber(draft.width),
+    height: optionalNumber(draft.height),
     details,
     images: draft.imageFiles,
     existingImages: draft.existingImages,
@@ -111,7 +134,8 @@ export const useProductsStore = defineStore('products', () => {
   const error = ref('')
 
   const productCountLabel = computed(
-    () => `${catalog.value.length} товаров · ${catalog.value.filter((p) => p.isActive).length} активных`,
+    () =>
+      `${catalog.value.length} товаров · ${catalog.value.filter((p) => p.isActive).length} активных`,
   )
 
   function countInCategory(categoryId: string): number {

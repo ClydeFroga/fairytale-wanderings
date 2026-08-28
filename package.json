@@ -4,7 +4,10 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "bun test"
+    "test": "bun test",
+    "start": "bun run server/src/index.ts",
+    "db:migrate": "cd server && bun run db:migrate",
+    "build:client": "cd client && bun run build-only"
   },
   "peerDependencies": {
     "typescript": "^6.0.3"

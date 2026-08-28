@@ -28,8 +28,15 @@ export const orders = pgTable("orders", {
   customerName: text("customer_name"),
   contact: text("contact"), // телефон
   email: text("email"), // необязательная почта — второй канал связи для веб-заказов
+  // Способ доставки: cdek_office (ПВЗ/постамат), cdek_door (курьер СДЭК) или
+  // manual (адрес введён руками). Заполняется checkout-ом, см. routes/orders.
   deliveryMethod: text("delivery_method"),
   deliveryAddress: text("delivery_address"),
+  deliveryPointCode: text("delivery_point_code"), // код ПВЗ СДЭК — только для cdek_office
+  deliveryTariffCode: integer("delivery_tariff_code"), // тариф СДЭК — пригодится при создании накладной
+  // Стоимость доставки, которую виджет показал покупателю. В totalPrice не входит
+  // (там только товары) и на сервере пока не пересчитывается — см. PLAN.md, Этап 6.
+  deliveryPrice: integer("delivery_price"),
   comment: text("comment"),
   totalPrice: integer("total_price").notNull().default(0),
   status: orderStatus("status").notNull().default("created"),

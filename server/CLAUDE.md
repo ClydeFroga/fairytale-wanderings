@@ -49,6 +49,9 @@ src/
       statusFlow.ts             # цепочка статусов и допустимые переходы
       helpers.ts                # склейка заказов с их позициями
       orders.e2e.test.ts
+    cdek/
+      route.ts                  # /cdek/config + /cdek/service — прокси для виджета ПВЗ
+      cdek.e2e.test.ts
   test/e2e/                     # инфраструктура E2E: preload, postgres, migrate, reset
     preload.ts  postgres.ts  migrate.ts  db.ts
   global/
@@ -66,6 +69,7 @@ src/
       seed.ts                   # CLI: bun run db:seed
     errors/                     # классы ошибок (AppError + наследники)
     mail/                       # SMTP-уведомление (nodemailer): mailer.ts + orderEmail.ts
+    cdek/                       # доставка СДЭК: config.ts (env) + api.ts (токен, прокси, кэш)
     telegram/                   # initData.ts (проверка Mini App), admins.ts, webAppUrl.ts
     auth/                       # adminSession.ts — JWT-кука админки (hono/jwt)
     utils/                      # upload (сохранение/удаление картинок), slugify, formatPhoneNumber
@@ -100,6 +104,9 @@ src/
 - Категории: `slug` — стабильный ключ для фильтра витрины (`GET /products?category=<slug>`), генерируется из названия транслитом при создании и **не меняется** при переименовании. Названия уникальны без учёта регистра (проверка в роуте). Удаление категории обнуляет `products.category_id`, товары остаются.
 - Картинки товара — массив относительных путей (`images/x.webp`) в `products.image`, файлы лежат в `UPLOAD_PATH/images` и раздаются сервером. Загрузка: повторяющееся поле формы `image` (Hono собирает одноимённые поля в массив), не больше `MAX_PRODUCT_IMAGES` (5). При `PATCH` набор задаётся полем `existingImages` (JSON-массив оставляемых путей) + новые файлы; выпавшие файлы удаляются с диска (`Upload.removeMany`). Первая картинка — обложка.
 - `users` нужны только боту (идентификация — сам Telegram). У веб-заказов `userId = null` (гостевой checkout).
+- **Параметры посылки у товара:** `weight` (граммы), `length/width/height` (см, в упакованном виде) — необязательные, `null` значит «нет своих», тогда клиент берёт коробку по умолчанию из `/cdek/config`. В форме товара пустое поле **очищает** колонку (`optionalNumber` в `routes/products/helpers.ts`), непришедшее — не трогает. Посылку на заказ собирает клиент (`client/src/scripts/parcel.ts`), потому что она уходит прямо в виджет.
+- **Отправитель СДЭК — код города** (`CDEK_FROM_CITY_CODE`), не название: калькулятор отвечает 400 на `from_location` со строковым адресом. `GET /cdek/service?action=cities` — разовая настроечная ручка для поиска этого кода, виджет её не вызывает.
+- **Доставка.** `deliveryMethod` — `cdek_office` / `cdek_door` / `manual`; у ПВЗ обязателен `deliveryPointCode` (проверяет валидатор). `deliveryPrice` — цена, которую виджет показал покупателю: она **не входит** в `totalPrice` и на сервере не пересчитывается (появится вместе с оплатой). Виджет ходит в `/cdek/service` — это ровно тот контракт, что описан в `service.php` из пакета `@cdek-it/widget` (`action=offices` → `deliverypoints`, `action=calculate` → `calculator/tarifflist`), поэтому менять формат ответа нельзя: его разбирает сам виджет. Заголовок `X-Total-Elements` от СДЭК пробрасывается наружу (по нему виджет считает страницы) и добавлен в `exposeHeaders` CORS.
 - Корзина живёт на клиенте; серверной таблицы корзины нет.
 
 ## Миграции

@@ -3,15 +3,30 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Адрес API вшивается в клиентский бандл на сборке. Сайт и API — на одном
+        # домене, поэтому в проде это домен магазина (тот же, что в WEBAPP_URL).
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+    restart: unless-stopped
+    # Один процесс отдаёт и API, и сайт (см. middleware/staticFiles.ts) — порт один.
+    # Внутри контейнера он всегда 3000, снаружи — APP_PORT (3000 может быть занят
+    # локальным dev-сервером).
     ports:
-      - "${CLIENT_PORT:-3000}:${CLIENT_PORT:-3000}" # Клиент
-      - "${PORT:-4000}:${PORT:-4000}" # Сервер
+      - "${APP_PORT:-3000}:3000"
     env_file:
       - .env.${NODE_ENV:-development}
     environment:
       - NODE_ENV=${NODE_ENV:-development}
+      # Перебивают значения из env-файла, рассчитанные на запуск с хоста:
+      # порт фиксируем под маппинг выше, картинки в контейнере живут в volume.
+      - PORT=3000
+      - UPLOAD_PATH=/app/uploads
+    volumes:
+      - uploads:/app/uploads
     depends_on:
-      - postgres
+      postgres:
+        # Миграции идут при старте — без готовой базы контейнер просто упадёт.
+        condition: service_healthy
     networks:
       - app-network
 
@@ -34,6 +49,7 @@ services:
 
 volumes:
   pgdata:
+  uploads:
 
 networks:
   app-network:

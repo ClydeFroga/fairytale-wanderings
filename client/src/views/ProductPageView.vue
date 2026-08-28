@@ -20,6 +20,10 @@ const product: Ref<IProduct> = ref({
   isActive: true,
   details: {},
   stock: 0,
+  weight: null,
+  length: null,
+  width: null,
+  height: null,
 })
 
 const props = defineProps<{ product?: IProduct }>()

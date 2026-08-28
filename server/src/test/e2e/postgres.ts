@@ -3,6 +3,9 @@ import path from "node:path";
 
 const COMPOSE_TEST_URL = "postgres://fairytale:test@localhost:15433/fairytale_test";
 const COMPOSE_FILE = path.join(import.meta.dir, "../../../../compose.test.yml");
+// Отдельный проект: иначе имя берётся по папке репозитория и совпадает с основным
+// compose — тогда `down -v` в конце тестов сносит контейнер приложения и dev-тома.
+const COMPOSE_PROJECT = "fairytale-test";
 
 export interface PostgresInstance {
   url: string;
@@ -11,7 +14,7 @@ export interface PostgresInstance {
 
 async function startViaCompose(): Promise<PostgresInstance> {
   const proc = Bun.spawn(
-    ["docker", "compose", "-f", COMPOSE_FILE, "up", "-d", "--wait"],
+    ["docker", "compose", "-p", COMPOSE_PROJECT, "-f", COMPOSE_FILE, "up", "-d", "--wait"],
     { stdout: "inherit", stderr: "inherit" },
   );
   const code = await proc.exited;
@@ -21,7 +24,7 @@ async function startViaCompose(): Promise<PostgresInstance> {
     url: COMPOSE_TEST_URL,
     stop: async () => {
       const down = Bun.spawn(
-        ["docker", "compose", "-f", COMPOSE_FILE, "down", "-v"],
+        ["docker", "compose", "-p", COMPOSE_PROJECT, "-f", COMPOSE_FILE, "down", "-v"],
         { stdout: "inherit", stderr: "inherit" },
       );
       if ((await down.exited) !== 0) throw new Error("Не удалось остановить postgres-test");

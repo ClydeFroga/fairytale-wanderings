@@ -14,6 +14,14 @@ export const products = pgTable('products', {
   isActive: boolean('is_active').notNull().default(true),
   details: jsonb('details').$type<Record<string, string>>().notNull().default({}),
   stock: integer('stock').notNull().default(0), // остаток на складе
+  // Параметры посылки для расчёта доставки: вес в граммах, габариты в
+  // сантиметрах — в таком виде их ждёт калькулятор СДЭК. Габариты указываются
+  // в упакованном виде. Не заполнено — берётся коробка по умолчанию из
+  // CDEK_PARCEL_* (см. global/cdek/config.ts).
+  weight: integer('weight'),
+  length: integer('length'),
+  width: integer('width'),
+  height: integer('height'),
 })
 
 export type IProduct = typeof products.$inferSelect

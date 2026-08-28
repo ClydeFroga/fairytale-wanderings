@@ -6,12 +6,23 @@ export type StockShortage = {
   requested: number
 }
 
-export type CreateOrderBody = {
+/** Способ доставки: ПВЗ/постамат СДЭК, курьер СДЭК или адрес, введённый руками. */
+export type DeliveryMethod = 'cdek_office' | 'cdek_door' | 'manual'
+
+/** Часть заказа про доставку — в том виде, в каком её ждёт сервер. */
+export type OrderDelivery = {
+  deliveryMethod: DeliveryMethod
+  deliveryAddress: string
+  deliveryPointCode?: string // код ПВЗ — только для cdek_office
+  deliveryTariffCode?: number
+  deliveryPrice?: number // стоимость, посчитанная виджетом
+}
+
+export type CreateOrderBody = OrderDelivery & {
   items: {
     productId: string
     quantity: number
   }[]
-  deliveryAddress?: string
   customerName?: string
   contact?: string
   email?: string
@@ -49,7 +60,11 @@ export type IOrder = {
   contact: string | null
   email: string | null
   telegram: OrderTelegram | null
+  deliveryMethod: DeliveryMethod | null
   deliveryAddress: string | null
+  deliveryPointCode: string | null
+  deliveryTariffCode: number | null
+  deliveryPrice: number | null
   comment: string | null
   totalPrice: number
   status: OrderStatus

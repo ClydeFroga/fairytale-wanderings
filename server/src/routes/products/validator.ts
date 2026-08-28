@@ -42,6 +42,11 @@ export const updateProductFormSchema = z.object({
   categoryId: z.string().optional(),
   isActive: z.string().optional(),
   stock: z.string().optional(),
+  // Параметры посылки: вес в граммах, габариты в см. Пустая строка очищает поле.
+  weight: z.string().optional(),
+  length: z.string().optional(),
+  width: z.string().optional(),
+  height: z.string().optional(),
   details: z.string().optional(), // JSON-объект характеристик
   image: imagesField, // новые файлы
   // JSON-массив путей уже сохранённых картинок, которые остаются у товара

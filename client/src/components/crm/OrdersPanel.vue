@@ -128,6 +128,7 @@ function steps(o: CrmOrder): Step[] {
       </ul>
 
       <p v-if="o.address" class="address">Доставка: {{ o.address }}</p>
+      <p v-if="o.delivery" class="address">{{ o.delivery }}</p>
 
       <!-- У отменённого заказа цепочка этапов ничего не значит — не показываем. -->
       <div v-if="!o.cancelled" class="pipeline">

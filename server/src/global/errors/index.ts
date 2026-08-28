@@ -6,3 +6,4 @@ export * from "./ImageErrors";
 export * from "./CategoryErrors";
 export * from "./AuthErrors";
 export * from "./OrderErrors";
+export * from "./CdekErrors";

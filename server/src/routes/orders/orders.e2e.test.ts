@@ -43,6 +43,54 @@ describe("Orders E2E", () => {
     expect(updated?.stock).toBe(product.stock - 2);
   });
 
+  it("POST /orders/create — сохраняет выбранный в виджете пункт выдачи СДЭК", async () => {
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+
+    const res = await app.fetch(
+      new Request("http://localhost/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ productId: product._id, quantity: 1 }],
+          customerName: "Тест",
+          contact: "+79990001122",
+          deliveryMethod: "cdek_office",
+          deliveryAddress: "Новосибирск, ул. Ленина, 1",
+          deliveryPointCode: "NSK1",
+          deliveryTariffCode: 136,
+          deliveryPrice: 350,
+        }),
+      }),
+    );
+    const order = (await res.json()) as IOrder;
+
+    expect(res.status).toBe(201);
+    expect(order.deliveryMethod).toBe("cdek_office");
+    expect(order.deliveryPointCode).toBe("NSK1");
+    expect(order.deliveryTariffCode).toBe(136);
+    expect(order.deliveryPrice).toBe(350);
+    // Доставка в сумму заказа не входит — там только товары.
+    expect(order.totalPrice).toBe(product.price);
+  });
+
+  it("POST /orders/create — 400, если для ПВЗ не передан код точки", async () => {
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+
+    const res = await app.fetch(
+      new Request("http://localhost/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ productId: product._id, quantity: 1 }],
+          deliveryMethod: "cdek_office",
+          deliveryAddress: "Новосибирск, ул. Ленина, 1",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+  });
+
   it("POST /orders/create — 404 для несуществующего товара", async () => {
     const res = await app.fetch(
       new Request("http://localhost/orders/create", {

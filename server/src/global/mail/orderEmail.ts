@@ -12,6 +12,12 @@ const CHANNEL_LABEL: Record<string, string> = {
   telegram: "Telegram",
 };
 
+const DELIVERY_LABEL: Record<string, string> = {
+  cdek_office: "СДЭК, пункт выдачи",
+  cdek_door: "СДЭК, курьером",
+  manual: "Адрес покупателя",
+};
+
 function formatPrice(value: number): string {
   return `${value.toLocaleString("ru-RU")} ₽`;
 }
@@ -27,6 +33,31 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/**
+ * Блок доставки: способ с кодом ПВЗ, адрес и стоимость от виджета СДЭК.
+ * У старых заказов способ не заполнен — тогда остаётся только адрес.
+ */
+function deliveryRows(order: IOrder): Array<[string, string]> {
+  const rows: Array<[string, string]> = [];
+
+  if (order.deliveryMethod) {
+    const label = DELIVERY_LABEL[order.deliveryMethod] ?? order.deliveryMethod;
+    const point = order.deliveryPointCode ? ` (${order.deliveryPointCode})` : "";
+    rows.push(["Способ доставки", `${label}${point}`]);
+  }
+
+  rows.push(["Доставка", order.deliveryAddress || "—"]);
+
+  if (order.deliveryPrice !== null) {
+    rows.push([
+      "Стоимость доставки",
+      `${formatPrice(order.deliveryPrice)} — оплачивается отдельно, в сумму заказа не входит`,
+    ]);
+  }
+
+  return rows;
+}
+
 /** Формирует письмо владелице о новом заказе: состав, суммы, контакт, доставка. */
 export function buildOrderEmail(order: IOrder, items: OrderEmailItem[]): MailMessage {
   const subject = `Новый заказ на сумму ${formatPrice(order.totalPrice)}`;
@@ -36,6 +67,8 @@ export function buildOrderEmail(order: IOrder, items: OrderEmailItem[]): MailMes
     quantity: it.quantity,
     sum: it.price * it.quantity,
   }));
+
+  const delivery = deliveryRows(order);
 
   const textLines = [
     subject,
@@ -48,7 +81,7 @@ export function buildOrderEmail(order: IOrder, items: OrderEmailItem[]): MailMes
     `Имя: ${order.customerName || "—"}`,
     `Телефон: ${order.contact || "—"}`,
     `Почта: ${order.email || "—"}`,
-    `Доставка: ${order.deliveryAddress || "—"}`,
+    ...delivery.map(([label, value]) => `${label}: ${value}`),
     `Канал: ${CHANNEL_LABEL[order.channel] ?? order.channel}`,
     `Номер заказа: ${order.id}`,
   ];
@@ -83,7 +116,12 @@ export function buildOrderEmail(order: IOrder, items: OrderEmailItem[]): MailMes
       <p style="margin:0 0 4px;"><b>Имя:</b> ${escapeHtml(order.customerName || "—")}</p>
       <p style="margin:0 0 4px;"><b>Телефон:</b> ${escapeHtml(order.contact || "—")}</p>
       <p style="margin:0 0 4px;"><b>Почта:</b> ${escapeHtml(order.email || "—")}</p>
-      <p style="margin:0 0 4px;"><b>Доставка:</b> ${escapeHtml(order.deliveryAddress || "—")}</p>
+      ${delivery
+        .map(
+          ([label, value]) =>
+            `<p style="margin:0 0 4px;"><b>${label}:</b> ${escapeHtml(value)}</p>`,
+        )
+        .join("")}
       <p style="margin:0 0 4px;"><b>Канал:</b> ${CHANNEL_LABEL[order.channel] ?? order.channel}</p>
       <p style="margin:16px 0 0;color:#97704e;font-size:12px;">Номер заказа: ${order.id}</p>
     </div>`;

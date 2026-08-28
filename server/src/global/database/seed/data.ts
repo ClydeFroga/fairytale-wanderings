@@ -8,11 +8,17 @@ export const seedCategoriesData: INewCategory[] = [
 ];
 
 // Сид товаров. `categorySlug` резолвится в categoryId при вставке (см. seedProducts.ts).
+// weight — граммы, length/width/height — сантиметры в упакованном виде: по ним
+// считается доставка СДЭК (см. client/src/scripts/parcel.ts).
 export type SeedProduct = Omit<INewProduct, "categoryId"> & { categorySlug: string };
 
 export const seedProductsData: SeedProduct[] = [
   {
     name: "Вязаный мишка Тедди",
+    weight: 300,
+    length: 30,
+    width: 22,
+    height: 18,
     price: 1800,
     stock: 5,
     categorySlug: "toys",
@@ -23,6 +29,10 @@ export const seedProductsData: SeedProduct[] = [
   },
   {
     name: "Плед «Облако»",
+    weight: 1800,
+    length: 45,
+    width: 35,
+    height: 25,
     price: 4500,
     stock: 3,
     categorySlug: "decor",
@@ -33,6 +43,10 @@ export const seedProductsData: SeedProduct[] = [
   },
   {
     name: "Шапка-бини",
+    weight: 150,
+    length: 25,
+    width: 20,
+    height: 8,
     price: 1200,
     stock: 10,
     categorySlug: "accessories",
@@ -42,6 +56,10 @@ export const seedProductsData: SeedProduct[] = [
   },
   {
     name: "Амигуруми «Котик»",
+    weight: 90,
+    length: 18,
+    width: 14,
+    height: 12,
     price: 900,
     stock: 8,
     categorySlug: "toys",
@@ -51,6 +69,10 @@ export const seedProductsData: SeedProduct[] = [
   },
   {
     name: "Прихватки (пара)",
+    weight: 180,
+    length: 22,
+    width: 18,
+    height: 6,
     price: 650,
     stock: 12,
     categorySlug: "kitchen",

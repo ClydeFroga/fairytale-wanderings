@@ -5,10 +5,10 @@ import crypto from "crypto";
 import { InvalidImageError } from "@global/errors";
 
 export class Upload {
-  private static uploadDir = path.resolve(
-    process.env.UPLOAD_PATH || "",
-    "images"
-  );
+  /** Корень каталога загрузок: в БД пути относительные (`images/x.webp`). */
+  static readonly rootDir = path.resolve(process.env.UPLOAD_PATH || "");
+
+  private static uploadDir = path.join(Upload.rootDir, "images");
 
   static async upload(file: File) {
     // Генерируем имя файла с метками времени и случайным хешем
@@ -59,7 +59,7 @@ export class Upload {
 
   /** Удаляет ранее сохранённые файлы (пути — как их вернул `upload`). */
   static async removeMany(paths: string[]) {
-    const uploadRoot = path.resolve(process.env.UPLOAD_PATH || "");
+    const uploadRoot = Upload.rootDir;
 
     for (const relative of paths) {
       // Абсолютные URL (сид на picsum) файлами не являются — пропускаем.

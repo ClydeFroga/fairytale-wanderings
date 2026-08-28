@@ -125,6 +125,13 @@ app.post('/create', createOrderValidator, async (c) => {
         contact: input.contact,
         email: input.email,
         deliveryAddress: input.deliveryAddress,
+        deliveryMethod: input.deliveryMethod,
+        deliveryPointCode: input.deliveryPointCode,
+        deliveryTariffCode: input.deliveryTariffCode,
+        // Стоимость доставки сохраняем справочно — её посчитал виджет в браузере.
+        // В totalPrice она не входит; когда подключим оплату, сумму доставки
+        // придётся пересчитывать на сервере (см. PLAN.md, Этап 6).
+        deliveryPrice: input.deliveryPrice,
         totalPrice,
         channel,
         status: 'created',

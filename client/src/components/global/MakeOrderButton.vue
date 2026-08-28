@@ -19,13 +19,13 @@ const makeOrder = async () => {
     return
   }
 
-  const order = new Order(
-    cartStore.items,
-    cartStore.address,
-    cartStore.name,
-    cartStore.phone,
-    cartStore.email,
-  )
+  const order = new Order({
+    items: cartStore.items,
+    delivery: cartStore.deliveryPayload,
+    name: cartStore.name,
+    phone: cartStore.phone,
+    email: cartStore.email,
+  })
 
   try {
     await order.send()

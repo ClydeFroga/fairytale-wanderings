@@ -1,0 +1,30 @@
+# Зависимости ставятся внутри образа: хостовые node_modules собраны под другую
+# ОС (sharp — нативный), и их копирование ломает сборку.
+node_modules
+**/node_modules
+
+# Секреты в образ не попадают — переменные приходят из compose (env_file).
+# Со `**`, иначе шаблон сработал бы только в корне и server/.env уехал бы в образ.
+**/.env
+**/.env.*
+!**/.env.example
+
+# Результаты сборки и локальные данные
+client/dist
+dist
+test_uploads
+**/test_uploads
+data
+coverage
+*.tsbuildinfo
+
+.git
+.gitignore
+.vscode
+.idea
+.claude
+*.log
+Dockerfile
+.dockerignore
+compose.yml
+compose.test.yml

@@ -1,14 +1,45 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import Header from '@/components/global/Header.vue'
-import { useCartStore } from '@/stores/cart'
+import { useCartStore, type DeliveryMode } from '@/stores/cart'
 import MakeOrderButton from '@/components/global/MakeOrderButton.vue'
 import FormField from '@/components/global/FormField.vue'
+import CdekDelivery from '@/components/global/CdekDelivery.vue'
 import { isTelegram } from '@/scripts/telegram'
 import { imageUrl } from '@/scripts/images'
 import { getMe } from '@/api/users'
+import { getCdekConfig, type CdekSettings } from '@/api/cdek'
+import { buildParcels } from '@/scripts/parcel'
 
 const cartStore = useCartStore()
+
+// Настройки виджета СДЭК приходят с сервера: не настроен — показываем только
+// поле адреса, как было до интеграции.
+const cdekSettings = ref<CdekSettings | null>(null)
+
+// Посылка для расчёта доставки: вес и габариты берутся из товаров в корзине,
+// у кого не заполнены — из коробки по умолчанию с сервера.
+const cdekGoods = computed(() =>
+  cdekSettings.value ? buildParcels(cartStore.items, cdekSettings.value.defaultParcel) : [],
+)
+
+onMounted(async () => {
+  try {
+    const config = await getCdekConfig()
+    if (!config.enabled) return
+
+    cdekSettings.value = config
+    cartStore.preferCdekDelivery()
+  } catch {
+    // не критично — покупатель введёт адрес вручную
+  }
+})
+
+function modeClass(mode: DeliveryMode) {
+  return cartStore.deliveryMode === mode
+    ? 'border-(--vt-c-text-light-2) bg-(--color-background-mute) font-medium'
+    : 'border-(--vt-c-divider-light-1) text-(--vt-c-text-light-2)'
+}
 
 // Для заказа из Телеграма — предзаполняем телефон из профиля (если он там есть
 // и поле ещё пустое). Ошибку глушим: предзаполнение необязательно.
@@ -53,7 +84,9 @@ onMounted(async () => {
             <p class="text-(--vt-c-text-light-2) text-sm font-normal leading-normal">
               {{ product.category }}
             </p>
-            <p class="text-(--vt-c-text-light-2) text-sm font-normal leading-normal">Кол-во: {{ quantity }}</p>
+            <p class="text-(--vt-c-text-light-2) text-sm font-normal leading-normal">
+              Кол-во: {{ quantity }}
+            </p>
             <p
               v-if="cartStore.isInsufficient(product)"
               class="text-red-600 text-sm font-medium leading-normal"
@@ -86,21 +119,47 @@ onMounted(async () => {
           <p class="text-(--vt-c-text-light-2) text-sm font-normal leading-normal">Сумма</p>
           <p class="text-sm font-normal leading-normal text-right">{{ cartStore.totalPrice }}</p>
         </div>
-        <!-- <div class="flex justify-between gap-x-6 py-2">
-          <p class="text-[var(--vt-c-text-light-2)] text-sm font-normal leading-normal">Доставка</p>
-          <p class="text-sm font-normal leading-normal text-right">{{ deliveryCost }}</p>
-        </div> -->
+        <!-- Стоимость доставки известна только после выбора точки в виджете СДЭК. -->
+        <div v-if="cartStore.deliveryPrice" class="flex justify-between gap-x-6 py-2">
+          <p class="text-(--vt-c-text-light-2) text-sm font-normal leading-normal">Доставка</p>
+          <p class="text-sm font-normal leading-normal text-right">
+            {{ cartStore.deliveryPrice }}
+          </p>
+        </div>
         <div class="flex justify-between gap-x-6 py-2">
           <p class="text-(--vt-c-text-light-2) text-sm font-normal leading-normal">
-            Итог (без учета доставки)
+            {{ cartStore.deliveryPrice ? 'Итого' : 'Итог (без учета доставки)' }}
           </p>
           <p class="text-sm font-normal leading-normal text-right">
-            {{ cartStore.totalPrice }}
+            {{ cartStore.totalWithDelivery }}
           </p>
         </div>
       </div>
       <div class="flex max-w-[480px] flex-col gap-4 px-4 py-3">
+        <!-- Способ доставки. Переключатель показываем, только когда СДЭК настроен. -->
+        <div v-if="cdekSettings" class="flex gap-2">
+          <button
+            v-for="mode in ['cdek', 'manual'] as DeliveryMode[]"
+            :key="mode"
+            type="button"
+            class="flex-1 cursor-pointer rounded-xl border px-4 py-3 text-sm leading-normal"
+            :class="modeClass(mode)"
+            @click="cartStore.setDeliveryMode(mode)"
+          >
+            {{ mode === 'cdek' ? 'СДЭК' : 'Свой адрес' }}
+          </button>
+        </div>
+
+        <CdekDelivery
+          v-if="cdekSettings && cartStore.deliveryMode === 'cdek'"
+          v-model="cartStore.cdekSelection"
+          :settings="cdekSettings"
+          :goods="cdekGoods"
+          :stale="cartStore.deliveryStale"
+          :has-error="cartStore.showValidationErrors && !cartStore.isDeliveryValid"
+        />
         <FormField
+          v-else
           v-model="cartStore.address"
           label="Адрес доставки"
           placeholder="Введите адрес доставки"

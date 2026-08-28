@@ -224,6 +224,57 @@ describe("Products E2E", () => {
     expect(created.image.some((p) => fs.existsSync(uploadedPath(p)))).toBe(false);
   });
 
+  it("POST /products — сохраняет вес и габариты посылки", async () => {
+    const res = await createProduct([], {
+      weight: "300",
+      length: "30",
+      width: "22",
+      height: "18",
+    });
+    const created = (await res.json()) as IProduct;
+
+    expect(res.status).toBe(201);
+    expect(created.weight).toBe(300);
+    expect(created.length).toBe(30);
+    expect(created.width).toBe(22);
+    expect(created.height).toBe(18);
+  });
+
+  it("POST /products — без веса и габаритов колонки остаются пустыми", async () => {
+    const created = (await (await createProduct([])).json()) as IProduct;
+
+    expect(created.weight).toBeNull();
+    expect(created.length).toBeNull();
+  });
+
+  it("PATCH /products/:id — пустое поле очищает вес, мусор не пишется", async () => {
+    const created = (await (
+      await createProduct([], { weight: "300", length: "30" })
+    ).json()) as IProduct;
+
+    const form = new FormData();
+    form.set("weight", ""); // очистка
+    form.set("length", "не число");
+    const updated = (await (await patchProduct(created._id, form)).json()) as IProduct;
+
+    expect(updated.weight).toBeNull();
+    expect(updated.length).toBeNull();
+  });
+
+  it("PATCH /products/:id — без полей посылки вес и габариты не трогаются", async () => {
+    const created = (await (
+      await createProduct([], { weight: "300", height: "18" })
+    ).json()) as IProduct;
+
+    const form = new FormData();
+    form.set("price", "1500");
+    const updated = (await (await patchProduct(created._id, form)).json()) as IProduct;
+
+    expect(updated.price).toBe(1500);
+    expect(updated.weight).toBe(300);
+    expect(updated.height).toBe(18);
+  });
+
   it("мутации закрыты: без авторизации → 401, не админ → 403", async () => {
     expect((await createProduct([], {}, {})).status).toBe(401);
     expect((await createProduct([], {}, customerHeaders())).status).toBe(403);

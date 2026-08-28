@@ -43,6 +43,10 @@ function emptyDraft(): ProductDraft {
     description: '',
     price: '',
     stock: '',
+    weight: '',
+    length: '',
+    width: '',
+    height: '',
     categoryId: categoriesStore.categories[0]?.id ?? '',
     details: [{ key: '', value: '' }],
     isActive: true,
@@ -79,6 +83,11 @@ watch(
           description: p.description,
           price: String(p.price),
           stock: String(p.stock),
+          // Незаполненные параметры посылки показываем пустыми, а не нулями.
+          weight: p.weight === null ? '' : String(p.weight),
+          length: p.length === null ? '' : String(p.length),
+          width: p.width === null ? '' : String(p.width),
+          height: p.height === null ? '' : String(p.height),
           categoryId: p.categoryId ?? '',
           details: detailsFromMap(p.detailsMap),
           isActive: p.isActive,
@@ -253,6 +262,46 @@ async function save() {
           </div>
         </div>
 
+        <!-- Посылка для расчёта доставки СДЭК. Не заполнено — считается по
+             коробке по умолчанию с сервера (CDEK_PARCEL_*). -->
+        <div class="field">
+          <label class="crm-label">Посылка (для расчёта доставки)</label>
+          <div class="grid-4">
+            <input
+              v-model="form.weight"
+              type="number"
+              class="crm-input"
+              placeholder="вес, г"
+              aria-label="Вес в граммах"
+            />
+            <input
+              v-model="form.length"
+              type="number"
+              class="crm-input"
+              placeholder="длина, см"
+              aria-label="Длина в сантиметрах"
+            />
+            <input
+              v-model="form.width"
+              type="number"
+              class="crm-input"
+              placeholder="ширина, см"
+              aria-label="Ширина в сантиметрах"
+            />
+            <input
+              v-model="form.height"
+              type="number"
+              class="crm-input"
+              placeholder="высота, см"
+              aria-label="Высота в сантиметрах"
+            />
+          </div>
+          <p class="images-hint">
+            Габариты — в упакованном виде. Можно не заполнять: тогда доставка считается по
+            стандартной коробке, но для крупных вещей цена будет неточной.
+          </p>
+        </div>
+
         <div class="field">
           <label class="crm-label">Категория</label>
           <select v-model="form.categoryId" class="crm-input">
@@ -267,18 +316,8 @@ async function save() {
           <label class="crm-label">Детали (характеристики)</label>
           <div class="details">
             <div v-for="(row, i) in form.details" :key="i" class="detail-row">
-              <input
-                v-model="row.key"
-                type="text"
-                class="crm-input"
-                placeholder="Материал"
-              />
-              <input
-                v-model="row.value"
-                type="text"
-                class="crm-input"
-                placeholder="100% хлопок"
-              />
+              <input v-model="row.key" type="text" class="crm-input" placeholder="Материал" />
+              <input v-model="row.value" type="text" class="crm-input" placeholder="100% хлопок" />
               <button
                 type="button"
                 class="crm-icon-btn danger"
@@ -289,7 +328,9 @@ async function save() {
                 🗑
               </button>
             </div>
-            <button type="button" class="add-detail" @click="addDetail">+ добавить характеристику</button>
+            <button type="button" class="add-detail" @click="addDetail">
+              + добавить характеристику
+            </button>
           </div>
         </div>
 
@@ -375,6 +416,11 @@ async function save() {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+}
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
 }
 .images {
   display: flex;
