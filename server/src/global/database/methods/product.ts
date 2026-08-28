@@ -33,6 +33,21 @@ export class ProductMethods {
     return row ?? null
   }
 
+  static async getBySlug(slug: string): Promise<ProductView | null> {
+    const [row] = await db
+      .select(productView)
+      .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(eq(products.slug, slug))
+      .limit(1)
+    return row ?? null
+  }
+
+  static async listSlugs(): Promise<string[]> {
+    const rows = await db.select({ slug: products.slug }).from(products)
+    return rows.map((row) => row.slug)
+  }
+
   static getByIds(ids: string[]): Promise<IProduct[]> {
     if (ids.length === 0) return Promise.resolve([])
     return db.select().from(products).where(inArray(products._id, ids))

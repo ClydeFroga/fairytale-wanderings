@@ -70,6 +70,14 @@ describe("Products E2E", () => {
     );
   });
 
+  it("GET /products — у товара есть стабильный slug из названия", async () => {
+    const res = await app.fetch(new Request("http://localhost/products"));
+    const data = (await res.json()) as IProduct[];
+    const teddy = data.find((p) => p.name === "Вязаный мишка Тедди")!;
+
+    expect(teddy.slug).toBe("vyazanyi-mishka-teddi");
+  });
+
   it("GET /products/:id — возвращает товар по id", async () => {
     const product = products[0]!;
 

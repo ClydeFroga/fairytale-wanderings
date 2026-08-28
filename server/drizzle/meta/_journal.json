@@ -57,6 +57,13 @@
       "when": 1787905427582,
       "tag": "0007_product_parcel",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787914908620,
+      "tag": "0008_blue_peter_parker",
+      "breakpoints": true
     }
   ]
 }

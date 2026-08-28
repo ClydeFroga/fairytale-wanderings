@@ -11,6 +11,7 @@ import type { INewProduct } from '@global/database/shema'
 import { Upload } from '@global/utils/upload'
 import { AppError, ProductNotFoundError, TooManyImagesError } from '@global/errors'
 import { requireAdmin } from '../../middleware/requireAdmin'
+import { uniqueSlug } from '@global/utils/slugify'
 
 const app = new Hono()
 
@@ -40,8 +41,9 @@ app.post('/', requireAdmin, createProductValidator, async (c) => {
     throw new TooManyImagesError(MAX_PRODUCT_IMAGES, form.image.length)
   }
 
+  const slug = uniqueSlug(form.name, await ProductMethods.listSlugs(), 'product')
   const images = await Upload.saveImages(form.image)
-  const productData = { ...mapFormToProduct(form), image: images } as INewProduct
+  const productData = { ...mapFormToProduct(form), slug, image: images } as INewProduct
 
   try {
     const newProduct = await ProductMethods.create(productData)

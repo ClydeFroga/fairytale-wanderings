@@ -6,6 +6,7 @@ import { categories } from './categorySchema'
 export const products = pgTable('products', {
   _id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
   price: integer('price').notNull(),
   description: text('description').notNull().default(''),
   // Ссылка на категорию. onDelete: set null — удаление категории не ломает товары.
