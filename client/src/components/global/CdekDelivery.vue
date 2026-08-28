@@ -10,6 +10,7 @@ import {
   type CdekTariff,
 } from '@/api/cdek'
 import type { CdekSelection } from '@/stores/cart'
+import FormField from '@/components/global/FormField.vue'
 
 // Карта пунктов выдачи СДЭК. Виджет тяжёлый (около мегабайта вместе с картами),
 // поэтому грузится динамически — только когда покупатель открыл выбор точки.
@@ -21,6 +22,7 @@ const props = defineProps<{
 }>()
 
 const selection = defineModel<CdekSelection | null>({ required: true })
+const flat = defineModel<string>('flat', { required: true })
 
 const widget = shallowRef<CdekWidget | null>(null)
 const loading = ref(false)
@@ -98,6 +100,14 @@ async function openWidget() {
       popup: true, // на телефоне встроенной карте не хватило бы места
       lang: 'rus',
       currency: 'RUB',
+      // Списки тарифов передаём только заданные — остальные виджет возьмёт свои
+      // (например, постаматные, у них отдельные коды).
+      tariffs: props.settings.tariffs,
+      hideDeliveryOptions: { door: !props.settings.doorDelivery, office: false },
+      // Постаматы не используем (у них свои тарифы и ограничения по габаритам):
+      // показываем только ПВЗ, а сам фильтр типа точки покупателю не нужен.
+      forceFilters: { type: 'PVZ' },
+      hideFilters: { type: true },
       onChoose: handleChoose,
     }
 
@@ -152,11 +162,27 @@ onBeforeUnmount(() => widget.value?.destroy())
       <span class="truncate">{{ loading ? 'Загружаем карту…' : 'Выбрать пункт выдачи' }}</span>
     </button>
 
+    <!-- Курьеру виджет отдаёт адрес только до дома — квартиру спрашиваем сами. -->
+    <FormField
+      v-if="selection?.method === 'cdek_door'"
+      v-model="flat"
+      label="Квартира или офис"
+      placeholder="Например, 42"
+      inputmode="numeric"
+      :has-error="Boolean(hasError) && !flat.trim()"
+    />
+
     <p v-if="stale && !selection" class="text-(--vt-c-text-light-2) text-sm leading-normal">
       Состав заказа изменился — выберите пункт выдачи заново, чтобы пересчитать доставку.
     </p>
     <p v-if="hasError && !selection" class="text-red-600 text-sm font-medium leading-normal">
       Выберите пункт выдачи на карте
+    </p>
+    <p
+      v-else-if="hasError && selection?.method === 'cdek_door' && !flat.trim()"
+      class="text-red-600 text-sm font-medium leading-normal"
+    >
+      Укажите квартиру или офис — курьеру нужен точный адрес
     </p>
     <p v-if="loadError" class="text-red-600 text-sm font-medium leading-normal">{{ loadError }}</p>
   </div>

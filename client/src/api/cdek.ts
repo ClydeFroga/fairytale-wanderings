@@ -21,10 +21,18 @@ export type CdekSender = {
   city: string
 }
 
+/** Коды тарифов, которые показываем покупателю; пусто — набор виджета по умолчанию. */
+export type CdekTariffs = {
+  office?: number[]
+  door?: number[]
+}
+
 /** Настройки виджета с сервера. Меняются в .env, без пересборки клиента. */
 export type CdekSettings = {
   apiKey: string // ключ Яндекс.Карт — виджет рисует на них карту ПВЗ
   from: CdekSender
+  tariffs: CdekTariffs
+  doorDelivery: boolean // false — вкладки «курьером» не будет
   defaultLocation: string // город, который показываем до выбора покупателя
   // Коробка для товаров, у которых вес и габариты не заполнены.
   defaultParcel: CdekParcel

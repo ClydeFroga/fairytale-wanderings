@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import { calculate, getCities, getOffices } from '@global/cdek/api'
-import { getCdekWidgetSettings } from '@global/cdek/config'
+import { getCdekTariffNames, getCdekWidgetSettings } from '@global/cdek/config'
 import { AppError } from '@global/errors'
+import { renameTariffs } from './helpers'
 
 // Эндпоинты виджета ПВЗ СДЭК. `/service` — это то, что виджет знает как
 // servicePath: он сам ходит сюда за списком ПВЗ и расчётом тарифов, а креды
@@ -59,7 +60,9 @@ app.post('/service', async (c) => {
 
   const { body } = await calculate(rest)
 
-  return c.body(body, 200, { 'Content-Type': 'application/json' })
+  return c.body(renameTariffs(body, getCdekTariffNames()), 200, {
+    'Content-Type': 'application/json',
+  })
 })
 
 export default app

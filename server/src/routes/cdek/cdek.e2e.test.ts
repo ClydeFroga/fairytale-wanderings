@@ -19,6 +19,10 @@ const CDEK_ENV_KEYS = [
   "CDEK_PARCEL_WIDTH",
   "CDEK_PARCEL_HEIGHT",
   "CDEK_PARCEL_WEIGHT",
+  "CDEK_TARIFFS_OFFICE",
+  "CDEK_TARIFFS_DOOR",
+  "CDEK_DOOR_DELIVERY",
+  "CDEK_TARIFF_NAMES",
 ];
 
 const realFetch = globalThis.fetch;
@@ -70,6 +74,8 @@ describe("CDEK E2E", () => {
     process.env.CDEK_FROM_CITY = "Новосибирск";
     process.env.CDEK_FROM_CITY_CODE = "270";
     process.env.CDEK_PARCEL_WEIGHT = "800";
+    process.env.CDEK_TARIFFS_OFFICE = "136, 483";
+    process.env.CDEK_DOOR_DELIVERY = "false";
 
     const res = await app.fetch(new Request("http://localhost/cdek/config"));
     const body = (await res.json()) as Record<string, unknown>;
@@ -81,7 +87,23 @@ describe("CDEK E2E", () => {
     expect(body.from).toEqual({ code: 270, city: "Новосибирск" });
     expect(body.defaultLocation).toBe("Новосибирск"); // по умолчанию — город отправителя
     expect(body.defaultParcel).toEqual({ length: 20, width: 15, height: 10, weight: 800 });
+    // Незаданный список тарифов наружу не уходит — виджет возьмёт свой набор.
+    expect(body.tariffs).toEqual({ office: [136, 483] });
+    expect(body.doorDelivery).toBe(false);
     expect(JSON.stringify(body)).not.toContain("secret");
+  });
+
+  it("GET /cdek/config — без списков тарифов отдаёт набор виджета и курьера", async () => {
+    setCredentials("default-tariffs");
+    process.env.CDEK_YANDEX_MAPS_API_KEY = "ymaps-key";
+    process.env.CDEK_FROM_CITY = "Новосибирск";
+    process.env.CDEK_FROM_CITY_CODE = "270";
+
+    const res = await app.fetch(new Request("http://localhost/cdek/config"));
+    const body = (await res.json()) as Record<string, unknown>;
+
+    expect(body.tariffs).toEqual({});
+    expect(body.doorDelivery).toBe(true);
   });
 
   it("GET /cdek/config — без ключа Яндекс.Карт виджет выключен", async () => {
@@ -199,6 +221,43 @@ describe("CDEK E2E", () => {
     expect((calcCall.init?.headers as Record<string, string>).Authorization).toBe(
       "Bearer test-token",
     );
+  });
+
+  it("POST /cdek/service — переименовывает тарифы для витрины", async () => {
+    setCredentials("rename-account");
+    process.env.CDEK_TARIFF_NAMES = "136:Обычная, 483:Экспресс";
+
+    stubFetch((url) => {
+      if (url.includes("/oauth/token")) return tokenResponse();
+      return Response.json({
+        tariff_codes: [
+          { tariff_code: 136, tariff_name: "Посылка склад-склад", delivery_sum: 500 },
+          { tariff_code: 483, tariff_name: "Экспресс склад-склад", delivery_sum: 950 },
+          { tariff_code: 751, tariff_name: "Сборный груз склад-склад", delivery_sum: 4250 },
+        ],
+      });
+    });
+
+    const res = await app.fetch(
+      new Request("http://localhost/cdek/service", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "calculate", to_location: { code: 44 } }),
+      }),
+    );
+    const tariffs = (await res.json()).tariff_codes as Array<{
+      tariff_code: number;
+      tariff_name: string;
+      delivery_sum: number;
+    }>;
+
+    expect(tariffs.map((t) => t.tariff_name)).toEqual([
+      "Обычная",
+      "Экспресс",
+      "Сборный груз склад-склад", // без имени в настройках — остаётся как есть
+    ]);
+    // Остальные поля тарифа не трогаем: их разбирает сам виджет.
+    expect(tariffs[0]!.delivery_sum).toBe(500);
   });
 
   it("POST /cdek/service — 400 на неизвестном действии", async () => {

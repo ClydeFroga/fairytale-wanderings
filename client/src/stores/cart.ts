@@ -31,10 +31,13 @@ export const useCartStore = defineStore('cart', () => {
   const address = ref('')
   // Доставка: по умолчанию ручной адрес — виджет СДЭК включается,
   // только если интеграция настроена (GET /cdek/config).
+  // Способ доставки покупатель не выбирает: магазин отправляет только СДЭК.
+  // 'manual' остаётся запасным режимом на случай, когда виджет недоступен.
   const deliveryMode = ref<DeliveryMode>('manual')
-  // Способ выбран покупателем — не перебиваем его при повторном открытии корзины.
-  const deliveryModeTouched = ref(false)
   const cdekSelection = ref<CdekSelection | null>(null)
+  // Квартира или офис — обязательна для курьера: виджет спрашивает адрес только
+  // до дома, а курьеру нужен точный.
+  const deliveryFlat = ref('')
   // Выбор доставки сброшен, потому что изменился состав корзины (см. watch ниже).
   const deliveryStale = ref(false)
   const name = ref('')
@@ -47,10 +50,16 @@ export const useCartStore = defineStore('cart', () => {
   const items = computed(() => Array.from(entriesById.value.values()))
 
   const isAddressValid = computed(() => address.value.trim().length > 0)
-  // В режиме СДЭК адрес не вводят руками — вместо него нужна выбранная точка.
-  const isDeliveryValid = computed(() =>
-    deliveryMode.value === 'cdek' ? cdekSelection.value !== null : isAddressValid.value,
-  )
+  // В режиме СДЭК адрес не вводят руками — вместо него нужна выбранная точка,
+  // а для курьера ещё и номер квартиры.
+  const isDeliveryValid = computed(() => {
+    if (deliveryMode.value !== 'cdek') return isAddressValid.value
+
+    const cdek = cdekSelection.value
+    if (!cdek) return false
+
+    return cdek.method !== 'cdek_door' || deliveryFlat.value.trim().length > 0
+  })
   const isNameValid = computed(() => name.value.trim().length > 0)
   const isPhoneValid = computed(() => /^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$/.test(phone.value))
   // Почта необязательна (телефон уже есть), но заполненную проверяем на формат.
@@ -82,9 +91,14 @@ export const useCartStore = defineStore('cart', () => {
       return { deliveryMethod: 'manual', deliveryAddress: address.value.trim() }
     }
 
+    const flat = deliveryFlat.value.trim()
+
     return {
       deliveryMethod: cdek.method,
-      deliveryAddress: cdek.address,
+      // Квартиру дописываем в адрес — отдельного поля в заказе нет, а курьеру
+      // и владелице нужен полный адрес одной строкой.
+      deliveryAddress:
+        cdek.method === 'cdek_door' && flat ? `${cdek.address}, кв. ${flat}` : cdek.address,
       deliveryPointCode: cdek.pointCode ?? undefined,
       deliveryTariffCode: cdek.tariffCode ?? undefined,
       deliveryPrice: cdek.price,
@@ -107,15 +121,10 @@ export const useCartStore = defineStore('cart', () => {
     if (chosen) deliveryStale.value = false
   })
 
-  function setDeliveryMode(mode: DeliveryMode) {
-    deliveryMode.value = mode
-    deliveryModeTouched.value = true
+  /** Включается, когда виджет СДЭК доступен (см. GET /cdek/config). */
+  function enableCdekDelivery() {
+    deliveryMode.value = 'cdek'
     orderError.value = ''
-  }
-
-  /** Ставит СДЭК способом по умолчанию — если покупатель не выбрал другой сам. */
-  function preferCdekDelivery() {
-    if (!deliveryModeTouched.value) deliveryMode.value = 'cdek'
   }
 
   function isInsufficient(product: IProduct) {
@@ -179,8 +188,8 @@ export const useCartStore = defineStore('cart', () => {
     entriesById.value = new Map()
     address.value = ''
     deliveryMode.value = 'manual'
-    deliveryModeTouched.value = false
     cdekSelection.value = null
+    deliveryFlat.value = ''
     deliveryStale.value = false
     name.value = ''
     phone.value = ''
@@ -201,9 +210,9 @@ export const useCartStore = defineStore('cart', () => {
     deliveryPayload,
     address,
     deliveryMode,
-    setDeliveryMode,
-    preferCdekDelivery,
+    enableCdekDelivery,
     cdekSelection,
+    deliveryFlat,
     deliveryStale,
     name,
     phone,
