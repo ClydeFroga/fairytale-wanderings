@@ -16,13 +16,17 @@ export type RobokassaConfig = {
 const HASHES: RobokassaHash[] = ['md5', 'sha1', 'sha256', 'sha384', 'sha512']
 const DEFAULT_TTL_MINUTES = 60
 
+let warnedHash: string | undefined // о каком неподдерживаемом ROBOKASSA_HASH уже предупредили
+
 /** null — оплата не настроена: заказы оформляются без онлайн-оплаты, как раньше. */
 export function getRobokassaConfig(): RobokassaConfig | null {
   const { ROBOKASSA_MERCHANT_LOGIN, ROBOKASSA_PASSWORD1, ROBOKASSA_PASSWORD2 } = process.env
   if (!ROBOKASSA_MERCHANT_LOGIN || !ROBOKASSA_PASSWORD1 || !ROBOKASSA_PASSWORD2) return null
 
   const hash = (process.env.ROBOKASSA_HASH || 'md5').toLowerCase() as RobokassaHash
-  if (!HASHES.includes(hash)) {
+  // Конфиг читается на каждый запрос — о кривом значении говорим один раз.
+  if (!HASHES.includes(hash) && warnedHash !== process.env.ROBOKASSA_HASH) {
+    warnedHash = process.env.ROBOKASSA_HASH
     console.warn(`ROBOKASSA_HASH=${process.env.ROBOKASSA_HASH} не поддерживается — используем md5`)
   }
 
