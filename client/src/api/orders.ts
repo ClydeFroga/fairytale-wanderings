@@ -93,6 +93,7 @@ export type OrderTelegram = {
 
 export type IOrder = {
   id: string
+  number: number // сквозной номер — его видит владелица и получает Робокасса
   customerName: string | null
   contact: string | null
   email: string | null
@@ -104,6 +105,9 @@ export type IOrder = {
   deliveryPrice: number | null
   comment: string | null
   totalPrice: number
+  paidAt: string | null
+  paymentExpiresAt: string | null // null — заказ без онлайн-оплаты
+  paymentMethod: string | null
   status: OrderStatus
   channel: 'web' | 'telegram'
   createdAt: string

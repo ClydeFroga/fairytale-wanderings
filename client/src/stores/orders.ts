@@ -16,7 +16,7 @@ export const STAGES = ['создан', 'оплачен', 'собран', 'отп
 // Отображаемая модель заказа в CRM.
 export type CrmOrder = {
   id: string
-  number: string // короткий номер для глаза (первые символы uuid)
+  number: string // Заказ №42
   customer: string
   contact: string
   email: string
@@ -24,6 +24,7 @@ export type CrmOrder = {
   telegramLink: string | null // ссылка на личку, если покупатель оставил username
   address: string
   delivery: string // способ доставки: ПВЗ с кодом и стоимость (если выбран СДЭК)
+  payment: string // оплачен когда и чем / ждёт оплаты / без онлайн-оплаты
   date: string
   total: string
   summary: string
@@ -53,8 +54,7 @@ const DELIVERY_LABEL: Record<DeliveryMethod, string> = {
   manual: 'Адрес покупателя',
 }
 
-// Способ доставки строкой: код ПВЗ нужен, чтобы оформить отправку, цена —
-// справочная (её показал виджет покупателю, в сумму заказа она не входит).
+// Способ доставки строкой: код ПВЗ нужен, чтобы оформить отправку; цена входит в сумму заказа.
 function deliveryLabel(order: IOrder): string {
   if (!order.deliveryMethod) return ''
 
@@ -62,6 +62,20 @@ function deliveryLabel(order: IOrder): string {
   const price = order.deliveryPrice ? ` · доставка ${formatPrice(order.deliveryPrice)}` : ''
 
   return `${DELIVERY_LABEL[order.deliveryMethod] ?? order.deliveryMethod}${point}${price}`
+}
+
+// Состояние оплаты. «Оплачен» показываем и у отменённого заказа — значит,
+// оплата пришла после отмены и покупателю нужен возврат.
+function paymentLabel(order: IOrder): string {
+  if (order.paidAt) {
+    const method = order.paymentMethod ? ` · ${order.paymentMethod}` : ''
+    return `Оплачен ${formatDate(order.paidAt)}${method}`
+  }
+  if (order.status !== 'created') return ''
+  if (!order.paymentExpiresAt) return 'Без онлайн-оплаты'
+
+  const minutesLeft = Math.ceil((new Date(order.paymentExpiresAt).getTime() - Date.now()) / 60_000)
+  return minutesLeft > 0 ? `Ждёт оплаты · осталось ${minutesLeft} мин` : 'Срок оплаты истёк'
 }
 
 function itemsSummary(items: IOrder['items']): string {
@@ -77,7 +91,7 @@ function fromApi(order: IOrder): CrmOrder {
 
   return {
     id: order.id,
-    number: `Заказ #${order.id.slice(0, 8)}`,
+    number: `Заказ №${order.number}`,
     customer: order.customerName || 'Без имени',
     contact: order.contact || '',
     email: order.email || '',
@@ -86,6 +100,7 @@ function fromApi(order: IOrder): CrmOrder {
     telegramLink: order.telegram?.username ? `https://t.me/${order.telegram.username}` : null,
     address: order.deliveryAddress || '',
     delivery: deliveryLabel(order),
+    payment: paymentLabel(order),
     date: formatDate(order.createdAt),
     total: formatPrice(order.totalPrice),
     summary: itemsSummary(items),
