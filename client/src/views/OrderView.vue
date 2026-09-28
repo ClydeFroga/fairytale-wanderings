@@ -140,12 +140,12 @@ onBeforeUnmount(stopPolling)
 
         <template v-else-if="state === 'expired' || state === 'cancelled'">
           <h2 class="text-[22px] font-bold leading-tight tracking-[-0.015em]">
-            Заказ №{{ order!.number }} отменён
+            Заказ №{{ order!.number }} {{ state === 'expired' ? 'не оплачен' : 'отменён' }}
           </h2>
           <p class="text-(--vt-c-text-light-2) text-base font-normal leading-normal max-w-[320px]">
             {{
               state === 'expired'
-                ? 'Время на оплату истекло. Соберите корзину заново — товары вернулись в продажу.'
+                ? 'Время на оплату истекло — заказ будет отменён. Чтобы купить, соберите корзину заново.'
                 : 'Если это недоразумение — напишите нам, всё поправим.'
             }}
           </p>
