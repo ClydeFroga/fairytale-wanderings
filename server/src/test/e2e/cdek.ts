@@ -64,7 +64,14 @@ export function stubCdek(options: CdekStubOptions = {}): StubCall[] {
     if (url.includes('/deliverypoints')) {
       const code = new URL(url).searchParams.get('code') ?? ''
       if (code.startsWith('MISSING')) return Response.json([])
-      return Response.json([{ code, city_code: options.cityCode ?? 270, city: 'Новосибирск' }])
+      // Форма как у настоящего /deliverypoints: город точки вложен в location.
+      return Response.json([
+        {
+          code,
+          type: 'PVZ',
+          location: { city_code: options.cityCode ?? 270, city: 'Новосибирск' },
+        },
+      ])
     }
 
     if (url.includes('/calculator/tarifflist')) {

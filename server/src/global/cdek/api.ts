@@ -158,12 +158,22 @@ function parseJson<T>(body: string): T {
   }
 }
 
+// Точка в ответе /deliverypoints: город вложен в location (виджет читает так же —
+// formatOffices в @cdek-it/widget берёт e.location.city_code).
+type CdekDeliveryPoint = { code: string; location?: { city_code?: number } }
+
 /** ПВЗ по коду — нужен код его города для расчёта на сервере. Через кэш списка ПВЗ. */
 export async function getOfficeByCode(code: string): Promise<CdekOfficeInfo | null> {
   const { body } = await getOffices(new URLSearchParams({ code }))
-  const list = parseJson<CdekOfficeInfo[]>(body)
+  const list = parseJson<CdekDeliveryPoint[]>(body)
+  if (!Array.isArray(list)) return null
 
-  return Array.isArray(list) ? (list.find((office) => office.code === code) ?? null) : null
+  const point = list.find((office) => office.code === code)
+  const cityCode = point?.location?.city_code
+  // Без кода города цену не посчитать — для заказа такая точка всё равно что не найдена.
+  if (!point || typeof cityCode !== 'number') return null
+
+  return { code: point.code, city_code: cityCode }
 }
 
 /** Калькулятор для сервера: только коды тарифов и цены. */
