@@ -9,13 +9,21 @@ export type StockShortage = {
 /** Способ доставки: ПВЗ/постамат СДЭК, курьер СДЭК или адрес, введённый руками. */
 export type DeliveryMethod = 'cdek_office' | 'cdek_door' | 'manual'
 
+/** Адрес курьерской доставки — как виджет отдаёт его в калькулятор СДЭК. */
+export type CdekLocation = {
+  address: string
+  postal_code?: string | null
+  country_code?: string
+}
+
 /** Часть заказа про доставку — в том виде, в каком её ждёт сервер. */
 export type OrderDelivery = {
   deliveryMethod: DeliveryMethod
   deliveryAddress: string
   deliveryPointCode?: string // код ПВЗ — только для cdek_office
   deliveryTariffCode?: number
-  deliveryPrice?: number // стоимость, посчитанная виджетом
+  deliveryPrice?: number // стоимость, которую видел покупатель; сервер сверяет её со своей
+  deliveryLocation?: CdekLocation // только для cdek_door — по нему сервер пересчитывает цену
 }
 
 export type CreateOrderBody = OrderDelivery & {
@@ -29,8 +37,37 @@ export type CreateOrderBody = OrderDelivery & {
   initData?: string
 }
 
+/** Ответ на оформление: paymentUrl есть, если включена онлайн-оплата. */
+export type CreatedOrder = {
+  id: string
+  number: number
+  totalPrice: number
+  paymentUrl: string | null
+}
+
 export function createOrder(body: CreateOrderBody) {
-  return apiClient.requestJson('/orders/create', { method: 'POST', body })
+  return apiClient.requestJson<CreatedOrder>('/orders/create', { method: 'POST', body })
+}
+
+/** Статус заказа для страницы /order/:id — без контактов покупателя. */
+export type PublicOrder = {
+  id: string
+  number: number
+  status: OrderStatus
+  totalPrice: number
+  paymentExpiresAt: string | null // null — заказ без онлайн-оплаты
+  paymentEnabled: boolean
+}
+
+export function getPublicOrder(id: string) {
+  return apiClient.requestJson<PublicOrder>(`/orders/${id}/public`)
+}
+
+/** Свежая ссылка на оплату — пока не истёк срок. */
+export function createPaymentLink(id: string) {
+  return apiClient.requestJson<{ paymentUrl: string }>(`/orders/${id}/payment-link`, {
+    method: 'POST',
+  })
 }
 
 // --- CRM ---

@@ -70,4 +70,6 @@ export type CdekOffice = {
 /** Адрес для курьерской доставки — приходит из геокодера Яндекса. */
 export type CdekGeoTarget = {
   formatted: string
+  postal_code: string | null
+  country_code: string
 }

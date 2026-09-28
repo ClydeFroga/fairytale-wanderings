@@ -58,6 +58,14 @@ function handleChoose(
       'code' in target
         ? [target.city, target.address].filter(Boolean).join(', ')
         : target.formatted,
+    location:
+      'code' in target
+        ? null
+        : {
+            address: target.formatted,
+            postal_code: target.postal_code,
+            country_code: target.country_code,
+          },
     tariffName: tariff?.tariff_name ?? '',
     tariffCode: tariff?.tariff_code ?? null,
     price: Math.round(tariff?.delivery_sum ?? 0), // копейки в заказе не храним

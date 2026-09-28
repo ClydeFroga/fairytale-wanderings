@@ -58,9 +58,11 @@ const router = createRouter({
           component: () => import('../views/CartView.vue'),
         },
         {
-          path: '/order/success',
-          name: 'order-success',
-          component: () => import('../views/OrderSuccessView.vue'),
+          // Сюда возвращает Робокасса (через /payments/robokassa/success|fail)
+          // и сюда же ведёт оформление без онлайн-оплаты.
+          path: '/order/:id',
+          name: 'order',
+          component: () => import('../views/OrderView.vue'),
         },
       ],
     },

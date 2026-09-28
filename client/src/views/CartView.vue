@@ -9,6 +9,7 @@ import { isTelegram } from '@/scripts/telegram'
 import { imageUrl } from '@/scripts/images'
 import { getMe } from '@/api/users'
 import { getCdekConfig, type CdekSettings } from '@/api/cdek'
+import { getPaymentConfig } from '@/api/payments'
 import { buildParcels } from '@/scripts/parcel'
 
 const cartStore = useCartStore()
@@ -18,6 +19,14 @@ const cartStore = useCartStore()
 // или отвалилась: иначе заказ было бы просто не оформить.
 const cdekSettings = ref<CdekSettings | null>(null)
 
+// С онлайн-оплатой кнопка ведёт на оплату — показываем сумму с доставкой.
+const paymentEnabled = ref(false)
+const orderButtonText = computed(() =>
+  paymentEnabled.value
+    ? `Оплатить ${cartStore.totalWithDelivery.toLocaleString('ru-RU')} ₽`
+    : 'Оформить заказ',
+)
+
 // Посылка для расчёта доставки: вес и габариты берутся из товаров в корзине,
 // у кого не заполнены — из коробки по умолчанию с сервера.
 const cdekGoods = computed(() =>
@@ -25,6 +34,12 @@ const cdekGoods = computed(() =>
 )
 
 onMounted(async () => {
+  getPaymentConfig()
+    .then((config) => (paymentEnabled.value = config.enabled))
+    .catch(() => {
+      // не критично — кнопка останется «Оформить заказ»
+    })
+
   try {
     const config = await getCdekConfig()
     if (!config.enabled) return
@@ -182,7 +197,7 @@ onMounted(async () => {
         {{ cartStore.orderError }}
       </p>
       <div class="flex px-4 py-3">
-        <MakeOrderButton class="truncate" text="Оформить заказ (без оплаты)" />
+        <MakeOrderButton class="truncate" :text="orderButtonText" />
       </div>
     </div>
   </article>

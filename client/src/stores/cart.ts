@@ -1,7 +1,7 @@
 import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
 import type { IProduct } from '@/types/product'
-import type { OrderDelivery, StockShortage } from '@/api/orders'
+import type { CdekLocation, OrderDelivery, StockShortage } from '@/api/orders'
 import { getProduct } from '@/api/products'
 
 export interface CartItem {
@@ -14,6 +14,7 @@ export interface CdekSelection {
   method: 'cdek_office' | 'cdek_door'
   pointCode: string | null // код ПВЗ; у курьерской доставки его нет
   address: string
+  location: CdekLocation | null // адрес курьера для пересчёта цены на сервере; у ПВЗ — null
   tariffName: string
   tariffCode: number | null
   price: number
@@ -102,6 +103,7 @@ export const useCartStore = defineStore('cart', () => {
       deliveryPointCode: cdek.pointCode ?? undefined,
       deliveryTariffCode: cdek.tariffCode ?? undefined,
       deliveryPrice: cdek.price,
+      deliveryLocation: cdek.location ?? undefined,
     }
   })
 
@@ -179,6 +181,22 @@ export const useCartStore = defineStore('cart', () => {
       'Некоторых товаров не хватает на складе. Уменьшите количество и попробуйте снова.'
   }
 
+  // Сервер посчитал доставку иначе, чем виджет. Частая причина — устаревшие вес
+  // и габариты товаров в корзине: перечитываем товары, иначе виджет посчитает
+  // ту же неверную цену снова. Точку покупатель выбирает заново.
+  async function handleDeliveryPriceChanged(price: number) {
+    const fresh = await Promise.all(
+      Array.from(entriesById.value.keys()).map((id) => getProduct(id)),
+    )
+    for (const product of fresh) {
+      const existing = entriesById.value.get(product._id)
+      if (existing) existing.product = product
+    }
+
+    cdekSelection.value = null
+    orderError.value = `Стоимость доставки изменилась: ${price.toLocaleString('ru-RU')} ₽. Выберите пункт выдачи ещё раз.`
+  }
+
   function validateOrderForm() {
     showValidationErrors.value = true
     return isOrderFormValid.value
@@ -231,6 +249,7 @@ export const useCartStore = defineStore('cart', () => {
     quantityOf,
     clearError,
     handleStockShortage,
+    handleDeliveryPriceChanged,
     clear,
   }
 })
