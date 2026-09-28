@@ -37,8 +37,11 @@ const makeOrder = async () => {
     cartStore.clear()
 
     // С онлайн-оплатой — сразу на страницу Робокассы (и в Mini App тоже);
-    // вернётся покупатель на /order/:id через Success/Fail URL.
+    // вернётся покупатель на /order/:id через Success/Fail URL. Корзину в истории
+    // заменяем страницей заказа: «Назад» с Робокассы приведёт к ней, а там
+    // статус и «Оплатить» ещё раз.
     if (created.paymentUrl) {
+      await router.replace(`/order/${created.id}`)
       window.location.href = created.paymentUrl
       return
     }
