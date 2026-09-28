@@ -289,6 +289,32 @@ describe("Orders E2E", () => {
     expect(order.status).toBe("created");
   });
 
+  it("POST /orders/create — заказы получают сквозной номер (InvId Робокассы)", async () => {
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+    const create = () =>
+      app.fetch(
+        new Request("http://localhost/orders/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: [{ productId: product._id, quantity: 1 }],
+            customerName: "Тест",
+            contact: "+79990001122",
+            deliveryAddress: "ул. Тестовая, 1",
+          }),
+        }),
+      );
+
+    const first = (await (await create()).json()) as IOrder;
+    const second = (await (await create()).json()) as IOrder;
+
+    // resetDatabase делает RESTART IDENTITY — нумерация в каждом тесте с 1.
+    expect(first.number).toBe(1);
+    expect(second.number).toBe(2);
+    expect(first.paidAt).toBeNull();
+    expect(first.paymentExpiresAt).toBeNull();
+  });
+
   it("POST /orders/create — почта необязательна, но сохраняется и нормализуется", async () => {
     const withoutEmail = await makeOrder();
     expect(withoutEmail.email).toBeNull();

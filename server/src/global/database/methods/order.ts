@@ -1,4 +1,4 @@
-import { desc, eq, getTableColumns } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, isNull, lt } from "drizzle-orm";
 import { db, type DB } from "../DatabaseSingleton";
 import { orders, users } from "../shema";
 import type { INewOrder, IOrder } from "../shema";
@@ -44,6 +44,62 @@ export class OrderMethods {
       .update(orders)
       .set({ status, updatedAt: new Date() })
       .where(eq(orders.id, id))
+      .returning();
+    return row ?? null;
+  }
+
+  // По номеру приходят уведомления Робокассы (InvId).
+  static async getByNumber(number: number): Promise<OrderView | null> {
+    const [row] = await db
+      .select(orderView)
+      .from(orders)
+      .leftJoin(users, eq(orders.userId, users.id))
+      .where(eq(orders.number, number))
+      .limit(1);
+    return row ?? null;
+  }
+
+  /** created → paid. null — заказ уже не ждёт оплаты (оплачен раньше или отменён). */
+  static async markPaid(
+    id: string,
+    data: { paidAt: Date; paymentMethod: string | null },
+  ): Promise<IOrder | null> {
+    const [row] = await db
+      .update(orders)
+      .set({ status: "paid", paidAt: data.paidAt, paymentMethod: data.paymentMethod, updatedAt: new Date() })
+      .where(and(eq(orders.id, id), eq(orders.status, "created")))
+      .returning();
+    return row ?? null;
+  }
+
+  /** Оплата уже отменённого заказа: фиксируем один раз, повторы уведомления — без эффекта. */
+  static async recordLatePayment(
+    id: string,
+    data: { paidAt: Date; paymentMethod: string | null },
+  ): Promise<IOrder | null> {
+    const [row] = await db
+      .update(orders)
+      .set({ paidAt: data.paidAt, paymentMethod: data.paymentMethod, updatedAt: new Date() })
+      .where(and(eq(orders.id, id), isNull(orders.paidAt)))
+      .returning();
+    return row ?? null;
+  }
+
+  // Заказы без срока (payment_expires_at = null) сюда не попадают: null < now — не true.
+  static getExpiredUnpaid(now: Date): Promise<OrderView[]> {
+    return db
+      .select(orderView)
+      .from(orders)
+      .leftJoin(users, eq(orders.userId, users.id))
+      .where(and(eq(orders.status, "created"), lt(orders.paymentExpiresAt, now)));
+  }
+
+  /** created → cancelled. null — заказ успели оплатить или отменить. */
+  static async cancelUnpaid(id: string, conn: DB = db): Promise<IOrder | null> {
+    const [row] = await conn
+      .update(orders)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(and(eq(orders.id, id), eq(orders.status, "created")))
       .returning();
     return row ?? null;
   }

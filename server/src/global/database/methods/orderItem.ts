@@ -16,9 +16,9 @@ export class OrderItemMethods {
     if (items.length) await conn.insert(orderItems).values(items);
   }
 
-  static getByOrderIds(orderIds: string[]): Promise<OrderItemView[]> {
+  static getByOrderIds(orderIds: string[], conn: DB = db): Promise<OrderItemView[]> {
     if (orderIds.length === 0) return Promise.resolve([]);
-    return db
+    return conn
       .select(orderItemView)
       .from(orderItems)
       .leftJoin(products, eq(orderItems.productId, products._id))

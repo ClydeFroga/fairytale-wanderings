@@ -77,4 +77,12 @@ export class ProductMethods {
       .returning({ stock: products.stock })
     return res.length > 0
   }
+
+  // Возврат остатка при отмене неоплаченного заказа.
+  static async incrementStock(id: string, qty: number, conn: DB = db): Promise<void> {
+    await conn
+      .update(products)
+      .set({ stock: sql`${products.stock} + ${qty}` })
+      .where(eq(products._id, id))
+  }
 }
