@@ -45,8 +45,10 @@ app.patch('/:id/status', requireAdmin, updateOrderStatusValidator, async (c) => 
     throw new InvalidStatusTransitionError(current.status, status)
   }
 
-  const updated = await OrderMethods.updateStatus(id, status)
-  if (!updated) throw new OrderNotFoundError(id)
+  // Пишем, только если статус не сменился после чтения: иначе можно затереть
+  // отмену сборщиком просроченных заказов или оплату из Result.
+  const updated = await OrderMethods.updateStatus(id, status, current.status)
+  if (!updated) throw new InvalidStatusTransitionError(current.status, status)
 
   // Уведомление клиенту — только для заказов из Telegram (у веб-гостя нет chat_id).
   // Ошибки глушатся внутри, статус меняется в любом случае.

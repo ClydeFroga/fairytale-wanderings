@@ -39,11 +39,16 @@ export class OrderMethods {
     return row ?? null;
   }
 
-  static async updateStatus(id: string, status: IOrder["status"]): Promise<IOrder | null> {
+  /** Смена статуса, если он всё ещё expectedFrom. null — заказа нет или статус успел смениться. */
+  static async updateStatus(
+    id: string,
+    status: IOrder["status"],
+    expectedFrom: IOrder["status"],
+  ): Promise<IOrder | null> {
     const [row] = await db
       .update(orders)
       .set({ status, updatedAt: new Date() })
-      .where(eq(orders.id, id))
+      .where(and(eq(orders.id, id), eq(orders.status, expectedFrom)))
       .returning();
     return row ?? null;
   }

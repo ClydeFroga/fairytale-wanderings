@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach, spyOn } from "bun:test";
 import { sign } from "@telegram-apps/init-data-node";
 import { createApp } from "../../app";
 import { resetDatabase } from "../../test/e2e/db";
 import { ProductMethods } from "@global/database/methods/product";
+import { OrderMethods } from "@global/database/methods/order";
 import { UserMethods } from "@global/database/methods/user";
 import type { IOrder, IProduct } from "@global/database/shema";
 import { TEST_BOT_TOKEN as BOT_TOKEN, adminHeaders, customerHeaders } from "../../test/e2e/auth";
@@ -685,6 +686,34 @@ describe("Orders E2E", () => {
 
     await setStatus(order.id, "completed");
     expect((await setStatus(order.id, "cancelled")).status).toBe(409);
+  });
+
+  it("OrderMethods.updateStatus — меняет статус, только если он не успел измениться", async () => {
+    const order = await makeOrder();
+    // Так отменяет сборщик просроченных заказов — между чтением и записью в CRM.
+    await OrderMethods.cancelUnpaid(order.id);
+
+    expect(await OrderMethods.updateStatus(order.id, "paid", "created")).toBeNull();
+    expect((await OrderMethods.getById(order.id))?.status).toBe("cancelled");
+    expect((await OrderMethods.updateStatus(order.id, "cancelled", "cancelled"))?.status).toBe("cancelled");
+  });
+
+  it("PATCH /orders/:id/status — статус сменился после чтения → 409, запись не затёрта", async () => {
+    const order = await makeOrder();
+    const stale = await OrderMethods.getById(order.id);
+    await OrderMethods.cancelUnpaid(order.id);
+    // Роут прочитал заказ ещё «созданным», а сборщик уже отменил его.
+    const readSpy = spyOn(OrderMethods, "getById").mockResolvedValueOnce(stale);
+    try {
+      const res = await setStatus(order.id, "paid");
+      const body = (await res.json()) as { code: string };
+
+      expect(res.status).toBe(409);
+      expect(body.code).toBe("INVALID_STATUS_TRANSITION");
+    } finally {
+      readSpy.mockRestore();
+    }
+    expect((await OrderMethods.getById(order.id))?.status).toBe("cancelled");
   });
 
   it("PATCH /orders/:id/status — отмена возможна с середины цепочки", async () => {
