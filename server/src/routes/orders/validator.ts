@@ -35,10 +35,19 @@ export const createOrderValidator = zValidator(
       initData: z.string().optional(),
       deliveryMethod: z.enum(DELIVERY_METHODS).optional(),
       // Данные выбранной доставки СДЭК: код ПВЗ, код тарифа и стоимость, которую
-      // виджет показал покупателю (в сумму заказа не входит, см. route.ts).
+      // виджет показал покупателю — сервер пересчитывает её и сверяет (route.ts).
       deliveryPointCode: z.string().trim().max(64).optional(),
       deliveryTariffCode: z.number().int().positive().optional(),
       deliveryPrice: z.number().int().nonnegative().max(1_000_000).optional(),
+      // Адрес курьерской доставки в том виде, в каком виджет шлёт его в
+      // калькулятор СДЭК: по нему сервер пересчитывает цену (см. delivery.ts).
+      deliveryLocation: z
+        .object({
+          address: z.string().trim().min(1).max(500),
+          postal_code: z.string().trim().max(20).nullable().optional(),
+          country_code: z.string().trim().max(2).optional(),
+        })
+        .optional(),
     })
     // У доставки СДЭК адрес не вводят руками — он приходит из виджета вместе
     // с точкой, поэтому требуем их явно: без них заказ нечем отправить.
@@ -49,5 +58,15 @@ export const createOrderValidator = zValidator(
     .refine(
       (data) => !data.deliveryMethod?.startsWith('cdek_') || Boolean(data.deliveryAddress?.trim()),
       { message: 'Для доставки СДЭК нужен адрес', path: ['deliveryAddress'] },
-    ),
+    )
+    .refine(
+      (data) =>
+        !data.deliveryMethod?.startsWith('cdek_') ||
+        (data.deliveryTariffCode !== undefined && data.deliveryPrice !== undefined),
+      { message: 'Для доставки СДЭК нужны тариф и стоимость', path: ['deliveryTariffCode'] },
+    )
+    .refine((data) => data.deliveryMethod !== 'cdek_door' || Boolean(data.deliveryLocation), {
+      message: 'Для курьерской доставки нужен адрес из виджета',
+      path: ['deliveryLocation'],
+    }),
 )

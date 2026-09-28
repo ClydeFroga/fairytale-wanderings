@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { sign } from "@telegram-apps/init-data-node";
 import { createApp } from "../../app";
 import { resetDatabase } from "../../test/e2e/db";
@@ -6,6 +6,8 @@ import { ProductMethods } from "@global/database/methods/product";
 import { UserMethods } from "@global/database/methods/user";
 import type { IOrder, IProduct } from "@global/database/shema";
 import { TEST_BOT_TOKEN as BOT_TOKEN, adminHeaders, customerHeaders } from "../../test/e2e/auth";
+import { buildParcels } from "@global/cdek/parcel";
+import { clearCdekEnv, restoreFetch, setCdekEnv, stubCdek } from "../../test/e2e/cdek";
 
 process.env.BOT_TOKEN = BOT_TOKEN;
 
@@ -15,7 +17,13 @@ describe("Orders E2E", () => {
   let products: IProduct[];
 
   beforeEach(async () => {
+    clearCdekEnv();
     products = await resetDatabase();
+  });
+
+  afterEach(() => {
+    restoreFetch();
+    clearCdekEnv();
   });
 
   it("POST /orders/create — создаёт заказ и списывает остаток", async () => {
@@ -43,7 +51,9 @@ describe("Orders E2E", () => {
     expect(updated?.stock).toBe(product.stock - 2);
   });
 
-  it("POST /orders/create — сохраняет выбранный в виджете пункт выдачи СДЭК", async () => {
+  it("POST /orders/create — ПВЗ СДЭК: цена доставки с сервера, входит в сумму", async () => {
+    setCdekEnv();
+    const calls = stubCdek({ cityCode: 270 });
     const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
 
     const res = await app.fetch(
@@ -58,7 +68,7 @@ describe("Orders E2E", () => {
           deliveryAddress: "Новосибирск, ул. Ленина, 1",
           deliveryPointCode: "NSK1",
           deliveryTariffCode: 136,
-          deliveryPrice: 350,
+          deliveryPrice: 350, // Math.round(350.4) — то, что показал виджет
         }),
       }),
     );
@@ -69,7 +79,212 @@ describe("Orders E2E", () => {
     expect(order.deliveryPointCode).toBe("NSK1");
     expect(order.deliveryTariffCode).toBe(136);
     expect(order.deliveryPrice).toBe(350);
-    // Доставка в сумму заказа не входит — там только товары.
+    expect(order.totalPrice).toBe(product.price + 350);
+
+    // Сервер сам спросил калькулятор: отправитель — код города из .env,
+    // получатель — город ПВЗ, посылка — из веса и габаритов товара в БД.
+    const calc = calls.find((c) => c.url.includes("/calculator/tarifflist"))!;
+    const payload = JSON.parse(String(calc.init?.body));
+    expect(payload.from_location).toEqual({ code: 44 });
+    expect(payload.to_location).toEqual({ code: 270 });
+    expect(payload.packages).toEqual(
+      buildParcels([{ ...product, quantity: 1 }], { length: 20, width: 15, height: 10, weight: 500 }),
+    );
+  });
+
+  it("POST /orders/create — курьер СДЭК: получатель по адресу из виджета", async () => {
+    setCdekEnv();
+    const calls = stubCdek();
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+
+    const res = await app.fetch(
+      new Request("http://localhost/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ productId: product._id, quantity: 1 }],
+          contact: "+79990001122",
+          deliveryMethod: "cdek_door",
+          deliveryAddress: "Москва, ул. Тверская, 1, кв. 5",
+          deliveryLocation: { address: "Москва, ул. Тверская, 1", postal_code: "125009", country_code: "RU" },
+          deliveryTariffCode: 137,
+          deliveryPrice: 520,
+        }),
+      }),
+    );
+    const order = (await res.json()) as IOrder;
+
+    expect(res.status).toBe(201);
+    expect(order.totalPrice).toBe(product.price + 520);
+    const calc = calls.find((c) => c.url.includes("/calculator/tarifflist"))!;
+    expect(JSON.parse(String(calc.init?.body)).to_location).toEqual({
+      address: "Москва, ул. Тверская, 1",
+      postal_code: "125009",
+      country_code: "RU",
+    });
+  });
+
+  it("POST /orders/create — 400, если курьеру не передан адрес из виджета", async () => {
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+
+    const res = await app.fetch(
+      new Request("http://localhost/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ productId: product._id, quantity: 1 }],
+          deliveryMethod: "cdek_door",
+          deliveryAddress: "Москва, ул. Тверская, 1, кв. 5",
+          deliveryTariffCode: 137,
+          deliveryPrice: 520,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  it("POST /orders/create — 409 DELIVERY_PRICE_CHANGED, заказ не создаётся", async () => {
+    setCdekEnv();
+    stubCdek();
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+
+    const res = await app.fetch(
+      new Request("http://localhost/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ productId: product._id, quantity: 1 }],
+          deliveryMethod: "cdek_office",
+          deliveryAddress: "Новосибирск, ул. Ленина, 1",
+          deliveryPointCode: "NSK1",
+          deliveryTariffCode: 136,
+          deliveryPrice: 100, // подделано в браузере
+        }),
+      }),
+    );
+    const body = (await res.json()) as { code: string; details: { price: number } };
+
+    expect(res.status).toBe(409);
+    expect(body.code).toBe("DELIVERY_PRICE_CHANGED");
+    expect(body.details.price).toBe(350);
+    const updated = await ProductMethods.getById(product._id);
+    expect(updated?.stock).toBe(product.stock);
+  });
+
+  it("POST /orders/create — тариф не из разрешённого списка → 400", async () => {
+    setCdekEnv({ CDEK_TARIFFS_OFFICE: "136" });
+    stubCdek();
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+
+    const res = await app.fetch(
+      new Request("http://localhost/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ productId: product._id, quantity: 1 }],
+          deliveryMethod: "cdek_office",
+          deliveryAddress: "Новосибирск, ул. Ленина, 1",
+          deliveryPointCode: "NSK1",
+          deliveryTariffCode: 483,
+          deliveryPrice: 600,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { code: string }).code).toBe("CDEK_INVALID_TARIFF");
+  });
+
+  it("POST /orders/create — неизвестный ПВЗ → 400", async () => {
+    setCdekEnv();
+    stubCdek();
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+
+    const res = await app.fetch(
+      new Request("http://localhost/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ productId: product._id, quantity: 1 }],
+          deliveryMethod: "cdek_office",
+          deliveryAddress: "Где-то",
+          deliveryPointCode: "MISSING1",
+          deliveryTariffCode: 136,
+          deliveryPrice: 350,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { code: string }).code).toBe("CDEK_POINT_NOT_FOUND");
+  });
+
+  it("POST /orders/create — СДЭК недоступен → 502, остаток не списан", async () => {
+    setCdekEnv();
+    stubCdek({ calculatorStatus: 500 });
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+
+    const res = await app.fetch(
+      new Request("http://localhost/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ productId: product._id, quantity: 1 }],
+          deliveryMethod: "cdek_office",
+          deliveryAddress: "Новосибирск, ул. Ленина, 1",
+          deliveryPointCode: "NSK2",
+          deliveryTariffCode: 136,
+          deliveryPrice: 350,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(502);
+    const updated = await ProductMethods.getById(product._id);
+    expect(updated?.stock).toBe(product.stock);
+  });
+
+  it("POST /orders/create — СДЭК не настроен, а пришёл заказ в ПВЗ → 503", async () => {
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+
+    const res = await app.fetch(
+      new Request("http://localhost/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ productId: product._id, quantity: 1 }],
+          deliveryMethod: "cdek_office",
+          deliveryAddress: "Новосибирск, ул. Ленина, 1",
+          deliveryPointCode: "NSK1",
+          deliveryTariffCode: 136,
+          deliveryPrice: 350,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(503);
+  });
+
+  it("POST /orders/create — ручной адрес: доставка не считается и в сумму не входит", async () => {
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+
+    const res = await app.fetch(
+      new Request("http://localhost/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ productId: product._id, quantity: 1 }],
+          deliveryMethod: "manual",
+          deliveryAddress: "ул. Тестовая, 1",
+          deliveryPrice: 999, // для ручного адреса игнорируется
+        }),
+      }),
+    );
+    const order = (await res.json()) as IOrder;
+
+    expect(res.status).toBe(201);
+    expect(order.deliveryPrice).toBeNull();
     expect(order.totalPrice).toBe(product.price);
   });
 

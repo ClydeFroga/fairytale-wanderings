@@ -143,3 +143,31 @@ export function getCities(params: URLSearchParams): Promise<CdekProxyResponse> {
 export function calculate(payload: unknown): Promise<CdekProxyResponse> {
   return request('calculator/tarifflist', { method: 'POST', json: payload })
 }
+
+export type CdekOfficeInfo = { code: string; city_code: number }
+export type CdekTariffQuote = { tariff_code: number; delivery_sum: number }
+
+function parseJson<T>(body: string): T {
+  try {
+    return JSON.parse(body) as T
+  } catch {
+    console.error('CDEK: не удалось разобрать ответ', body.slice(0, 200))
+    throw new CdekApiError(200)
+  }
+}
+
+/** ПВЗ по коду — нужен код его города для расчёта на сервере. Через кэш списка ПВЗ. */
+export async function getOfficeByCode(code: string): Promise<CdekOfficeInfo | null> {
+  const { body } = await getOffices(new URLSearchParams({ code }))
+  const list = parseJson<CdekOfficeInfo[]>(body)
+
+  return Array.isArray(list) ? (list.find((office) => office.code === code) ?? null) : null
+}
+
+/** Калькулятор для сервера: только коды тарифов и цены. */
+export async function calculateTariffList(payload: unknown): Promise<CdekTariffQuote[]> {
+  const { body } = await calculate(payload)
+  const parsed = parseJson<{ tariff_codes?: CdekTariffQuote[] }>(body)
+
+  return Array.isArray(parsed.tariff_codes) ? parsed.tariff_codes : []
+}

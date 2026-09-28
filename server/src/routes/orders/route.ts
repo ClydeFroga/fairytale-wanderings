@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { createOrderValidator, updateOrderStatusValidator } from './validator'
+import { quoteDelivery } from './delivery'
 import { ProductMethods } from '@global/database/methods/product'
 import { OrderMethods } from '@global/database/methods/order'
 import { OrderItemMethods } from '@global/database/methods/orderItem'
@@ -105,7 +106,26 @@ app.post('/create', createOrderValidator, async (c) => {
     quantity: item.quantity,
     price: byId.get(item.productId)!.price,
   }))
-  const totalPrice = items.reduce((acc, it) => acc + it.quantity * it.price, 0)
+
+  // Доставку считаем до транзакции: это сетевой запрос в СДЭК, держать
+  // блокировки остатков на время него незачем. Ручной адрес — null.
+  const deliveryPrice = await quoteDelivery(
+    input,
+    input.items.map((item) => {
+      const product = byId.get(item.productId)!
+      return {
+        weight: product.weight,
+        length: product.length,
+        width: product.width,
+        height: product.height,
+        quantity: item.quantity,
+      }
+    }),
+  )
+
+  const goodsTotal = items.reduce((acc, it) => acc + it.quantity * it.price, 0)
+  // К оплате — товары и доставка; deliveryPrice дополнительно хранится отдельно.
+  const totalPrice = goodsTotal + (deliveryPrice ?? 0)
 
   const order = await runInTransaction(async (tx) => {
     for (const item of items) {
@@ -128,10 +148,7 @@ app.post('/create', createOrderValidator, async (c) => {
         deliveryMethod: input.deliveryMethod,
         deliveryPointCode: input.deliveryPointCode,
         deliveryTariffCode: input.deliveryTariffCode,
-        // Стоимость доставки сохраняем справочно — её посчитал виджет в браузере.
-        // В totalPrice она не входит; когда подключим оплату, сумму доставки
-        // придётся пересчитывать на сервере (см. PLAN.md, Этап 6).
-        deliveryPrice: input.deliveryPrice,
+        deliveryPrice,
         totalPrice,
         channel,
         status: 'created',

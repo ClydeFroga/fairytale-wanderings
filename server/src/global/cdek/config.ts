@@ -101,6 +101,30 @@ export function getCdekCredentials(): CdekCredentials | null {
   }
 }
 
+/** Код города-отправителя (CDEK_FROM_CITY_CODE). null — не задан или мусор. */
+export function getCdekFromCityCode(): number | null {
+  const code = Number(process.env.CDEK_FROM_CITY_CODE)
+  return Number.isInteger(code) && code > 0 ? code : null
+}
+
+/** Разрешённые тарифы по вкладкам. undefined во вкладке — ограничений нет. */
+export function getCdekTariffs(): CdekTariffs {
+  return {
+    office: readCodes(process.env.CDEK_TARIFFS_OFFICE),
+    door: readCodes(process.env.CDEK_TARIFFS_DOOR),
+  }
+}
+
+/** Коробка по умолчанию — для товаров без своих веса и габаритов. */
+export function getCdekDefaultParcel(): CdekParcel {
+  return {
+    length: readNumber(process.env.CDEK_PARCEL_LENGTH, DEFAULT_PARCEL.length),
+    width: readNumber(process.env.CDEK_PARCEL_WIDTH, DEFAULT_PARCEL.width),
+    height: readNumber(process.env.CDEK_PARCEL_HEIGHT, DEFAULT_PARCEL.height),
+    weight: readNumber(process.env.CDEK_PARCEL_WEIGHT, DEFAULT_PARCEL.weight),
+  }
+}
+
 /**
  * Настройки виджета. null — виджет не показываем: без ключа Яндекс.Карт он не
  * нарисует карту, а без кода города-отправителя не посчитает стоимость (виджет
@@ -109,28 +133,20 @@ export function getCdekCredentials(): CdekCredentials | null {
  */
 export function getCdekWidgetSettings(): CdekWidgetSettings | null {
   const { CDEK_YANDEX_MAPS_API_KEY, CDEK_FROM_CITY } = process.env
-  const fromCityCode = Number(process.env.CDEK_FROM_CITY_CODE)
+  const fromCityCode = getCdekFromCityCode()
 
   if (!getCdekCredentials() || !CDEK_YANDEX_MAPS_API_KEY || !CDEK_FROM_CITY) return null
-  if (!Number.isInteger(fromCityCode) || fromCityCode <= 0) return null
+  if (fromCityCode === null) return null
 
   return {
     apiKey: CDEK_YANDEX_MAPS_API_KEY,
     from: { code: fromCityCode, city: CDEK_FROM_CITY },
     // Город, который виджет показывает до выбора покупателя.
     defaultLocation: process.env.CDEK_DEFAULT_CITY || CDEK_FROM_CITY,
-    tariffs: {
-      office: readCodes(process.env.CDEK_TARIFFS_OFFICE),
-      door: readCodes(process.env.CDEK_TARIFFS_DOOR),
-    },
+    tariffs: getCdekTariffs(),
     // Курьерскую доставку можно выключить целиком: виджет не спрашивает
     // квартиру, а владелице удобнее отправлять только до пункта выдачи.
     doorDelivery: process.env.CDEK_DOOR_DELIVERY !== 'false',
-    defaultParcel: {
-      length: readNumber(process.env.CDEK_PARCEL_LENGTH, DEFAULT_PARCEL.length),
-      width: readNumber(process.env.CDEK_PARCEL_WIDTH, DEFAULT_PARCEL.width),
-      height: readNumber(process.env.CDEK_PARCEL_HEIGHT, DEFAULT_PARCEL.height),
-      weight: readNumber(process.env.CDEK_PARCEL_WEIGHT, DEFAULT_PARCEL.weight),
-    },
+    defaultParcel: getCdekDefaultParcel(),
   }
 }
