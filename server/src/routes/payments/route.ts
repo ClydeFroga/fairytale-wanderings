@@ -70,8 +70,8 @@ app.on(['GET', 'POST'], '/robokassa/result', async (c) => {
   if (paid) {
     await announcePaidOrder(paid, order.telegramId, { isTest: config.isTest })
   } else {
-    // Заказ успели отменить (истёк срок или вручную) — деньги пришли, товар уже
-    // на складе. Фиксируем оплату один раз и зовём владелицу разобраться.
+    // Заказ успели отменить (истёк срок или вручную) — деньги пришли, а заказа
+    // уже нет. Фиксируем оплату один раз и зовём владелицу разобраться.
     const current = await OrderMethods.getById(order.id)
     if (current?.status === 'cancelled') {
       const late = await OrderMethods.recordLatePayment(order.id, payment)

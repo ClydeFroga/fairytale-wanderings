@@ -379,7 +379,11 @@ describe('Payments E2E', () => {
       expect(row.status).toBe('cancelled')
       expect(row.paidAt).not.toBeNull()
       expect(mailSpy).toHaveBeenCalledTimes(1)
-      expect(mailSpy.mock.calls[0]![0].subject).toContain('отменённый')
+      const mail = mailSpy.mock.calls[0]![0]
+      expect(mail.subject).toContain('отменённый')
+      // Ручная отмена в CRM остаток не возвращает — письмо не должно это обещать.
+      expect(mail.text).not.toContain('вернулся на склад')
+      expect(mail.text).toContain('наличие')
     })
 
     it('оплата выключена — 503', async () => {
