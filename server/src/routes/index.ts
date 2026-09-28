@@ -5,6 +5,7 @@ import users from "./users/route";
 import categories from "./categories/route";
 import auth from "./auth/route";
 import cdek from "./cdek/route";
+import payments from "./payments/route";
 import seo from "./seo/route";
 
 const app = new Hono();
@@ -15,6 +16,7 @@ app.route("/users", users);
 app.route("/categories", categories);
 app.route("/auth", auth);
 app.route("/cdek", cdek);
+app.route("/payments", payments);
 app.route("/", seo);
 
 export default app;

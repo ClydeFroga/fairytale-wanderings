@@ -10,13 +10,24 @@ function formatPrice(value: number): string {
 /**
  * Уведомляет клиента, что заказ создан.
  * chatId — Telegram user id (из проверенной initData), для приватного чата = chat_id.
+ * awaitingPayment — заказ ждёт онлайн-оплаты (иначе владелица свяжется сама).
  */
-export async function notifyOrderCreated(chatId: number, order: IOrder): Promise<void> {
-  const text = [
-    "Спасибо за заказ! 🧸",
-    `Ваш заказ принят, сумма — ${formatPrice(order.totalPrice)}.`,
-    "Мы свяжемся с вами для подтверждения деталей доставки и оплаты.",
-  ].join("\n");
+export async function notifyOrderCreated(
+  chatId: number,
+  order: IOrder,
+  options: { awaitingPayment: boolean },
+): Promise<void> {
+  const text = options.awaitingPayment
+    ? [
+        "Спасибо за заказ! 🧸",
+        `Заказ №${order.number} на сумму ${formatPrice(order.totalPrice)} ожидает оплаты.`,
+        "Как только оплата пройдёт, мы начнём его собирать.",
+      ].join("\n")
+    : [
+        "Спасибо за заказ! 🧸",
+        `Ваш заказ №${order.number} принят, сумма — ${formatPrice(order.totalPrice)}.`,
+        "Мы свяжемся с вами для подтверждения деталей доставки и оплаты.",
+      ].join("\n");
 
   await sendCustomerMessage(chatId, text);
 }

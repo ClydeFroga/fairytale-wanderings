@@ -9,6 +9,8 @@ import {
   InsufficientStockError,
   InvalidStatusTransitionError,
   OrderNotFoundError,
+  PaymentExpiredError,
+  PaymentNotConfiguredError,
   ProductNotFoundError,
 } from '@global/errors'
 import { sendOwnerMail } from '@global/mail/mailer'
@@ -16,8 +18,10 @@ import { buildOrderEmail } from '@global/mail/orderEmail'
 import { verifyInitData } from '@global/telegram/initData'
 import { UserMethods } from '@global/database/methods/user'
 import { notifyOrderCreated, notifyOrderStatus } from '@global/notify/orderNotify'
+import { getPaymentTtlMinutes, getRobokassaConfig } from '@global/robokassa/config'
 import { requireAdmin } from '../../middleware/requireAdmin'
-import { buildOrderList } from './helpers'
+import { paymentUrlFor } from './payment'
+import { buildOrderList, isUuid } from './helpers'
 import { canTransition } from './statusFlow'
 
 const app = new Hono()
@@ -127,6 +131,13 @@ app.post('/create', createOrderValidator, async (c) => {
   // К оплате — товары и доставка; deliveryPrice дополнительно хранится отдельно.
   const totalPrice = goodsTotal + (deliveryPrice ?? 0)
 
+  // С онлайн-оплатой заказ держит товар ограниченное время — дальше его
+  // отменит сборщик (global/payments/expireOrders.ts) и вернёт остаток.
+  const paymentEnabled = getRobokassaConfig() !== null
+  const paymentExpiresAt = paymentEnabled
+    ? new Date(Date.now() + getPaymentTtlMinutes() * 60_000)
+    : null
+
   const order = await runInTransaction(async (tx) => {
     for (const item of items) {
       const ok = await ProductMethods.decrementStock(item.productId, item.quantity, tx)
@@ -152,6 +163,7 @@ app.post('/create', createOrderValidator, async (c) => {
         totalPrice,
         channel,
         status: 'created',
+        paymentExpiresAt,
       },
       tx,
     )
@@ -164,25 +176,72 @@ app.post('/create', createOrderValidator, async (c) => {
     return created
   })
 
-  // Письмо — после успешной записи. Сбой почты не должен ломать заказ.
-  try {
-    const emailItems = items.map((it) => ({
-      name: byId.get(it.productId)!.name,
-      quantity: it.quantity,
-      price: it.price,
-    }))
-    await sendOwnerMail(buildOrderEmail(order, emailItems))
-  } catch (err) {
-    console.error('Не удалось отправить письмо о заказе:', err)
+  const lines = items.map((it) => ({
+    name: byId.get(it.productId)!.name,
+    quantity: it.quantity,
+    price: it.price,
+  }))
+  const paymentUrl = paymentUrlFor(order, lines)
+
+  // Без онлайн-оплаты письмо уходит сразу, как раньше. С оплатой — по факту
+  // оплаты (routes/payments), чтобы брошенные корзины не отвлекали владелицу.
+  if (!paymentUrl) {
+    try {
+      await sendOwnerMail(buildOrderEmail(order, lines))
+    } catch (err) {
+      console.error('Не удалось отправить письмо о заказе:', err)
+    }
   }
 
   // Уведомление клиенту в Telegram (для заказов из Mini App). Best-effort:
   // ошибки глушатся внутри sendCustomerMessage, заказ они не ломают.
   if (notifyChatId !== null) {
-    await notifyOrderCreated(notifyChatId, order)
+    await notifyOrderCreated(notifyChatId, order, { awaitingPayment: paymentUrl !== null })
   }
 
-  return c.json(order, 201)
+  return c.json({ ...order, paymentUrl }, 201)
+})
+
+// Статус заказа для страницы /order/:id — открыт без авторизации: uuid не
+// угадать, а наружу уходит только номер, статус, сумма и срок оплаты.
+app.get('/:id/public', async (c) => {
+  const { id } = c.req.param()
+  const order = isUuid(id) ? await OrderMethods.getById(id) : null
+  if (!order) throw new OrderNotFoundError(id)
+
+  return c.json({
+    id: order.id,
+    number: order.number,
+    status: order.status,
+    totalPrice: order.totalPrice,
+    paymentExpiresAt: order.paymentExpiresAt,
+    paymentEnabled: getRobokassaConfig() !== null,
+  })
+})
+
+// Повторная ссылка на оплату — если покупатель ушёл со страницы Робокассы.
+// Срок не продлевается: он же держит товар на складе.
+app.post('/:id/payment-link', async (c) => {
+  const { id } = c.req.param()
+  if (!getRobokassaConfig()) throw new PaymentNotConfiguredError()
+
+  const order = isUuid(id) ? await OrderMethods.getById(id) : null
+  if (!order) throw new OrderNotFoundError(id)
+
+  const expired = !order.paymentExpiresAt || order.paymentExpiresAt.getTime() <= Date.now()
+  if (order.status !== 'created' || expired) throw new PaymentExpiredError(id)
+
+  const items = await OrderItemMethods.getByOrderIds([id])
+  const paymentUrl = paymentUrlFor(
+    order,
+    items.map((item) => ({
+      name: item.productName ?? 'Товар',
+      quantity: item.quantity,
+      price: item.price,
+    })),
+  )
+
+  return c.json({ paymentUrl })
 })
 
 export default app

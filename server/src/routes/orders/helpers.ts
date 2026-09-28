@@ -59,3 +59,10 @@ export function buildOrderList(orders: OrderView[], items: OrderItemView[]): Ord
     };
   });
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Кривой id не должен доходить до Postgres — там это ошибка приведения к uuid. */
+export function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}

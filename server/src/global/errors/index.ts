@@ -7,3 +7,4 @@ export * from "./CategoryErrors";
 export * from "./AuthErrors";
 export * from "./OrderErrors";
 export * from "./CdekErrors";
+export * from "./PaymentErrors";

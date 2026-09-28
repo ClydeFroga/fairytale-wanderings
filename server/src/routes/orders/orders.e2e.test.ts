@@ -8,6 +8,7 @@ import type { IOrder, IProduct } from "@global/database/shema";
 import { TEST_BOT_TOKEN as BOT_TOKEN, adminHeaders, customerHeaders } from "../../test/e2e/auth";
 import { buildParcels } from "@global/cdek/parcel";
 import { clearCdekEnv, restoreFetch, setCdekEnv, stubCdek } from "../../test/e2e/cdek";
+import { clearRobokassaEnv } from "../../test/e2e/robokassa";
 
 process.env.BOT_TOKEN = BOT_TOKEN;
 
@@ -18,6 +19,7 @@ describe("Orders E2E", () => {
 
   beforeEach(async () => {
     clearCdekEnv();
+    clearRobokassaEnv();
     products = await resetDatabase();
   });
 
