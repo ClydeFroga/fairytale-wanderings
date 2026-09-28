@@ -6,8 +6,11 @@ import { resetDatabase } from '../../test/e2e/db'
 import { db } from '@global/database/DatabaseSingleton'
 import { orders, type IOrder, type IProduct } from '@global/database/shema'
 import * as mailer from '@global/mail/mailer'
+import * as orderNotify from '@global/notify/orderNotify'
+import { OrderItemMethods } from '@global/database/methods/orderItem'
 import { PAYMENT_PAGE_URL } from '@global/robokassa/signature'
 import { RK_LOGIN, RK_PASSWORD1, RK_PASSWORD2, clearRobokassaEnv, setRobokassaEnv } from '../../test/e2e/robokassa'
+import { TEST_BOT_TOKEN, signInitData } from '../../test/e2e/auth'
 
 const app = createApp()
 
@@ -18,7 +21,7 @@ const md5 = (value: string) => createHash('md5').update(value).digest('hex')
 // Заказа с таким номером и uuid в базе нет.
 const unknownOrder = { id: '00000000-0000-4000-8000-000000000000', number: 999 }
 
-async function createOrder(product: IProduct, quantity = 1) {
+async function createOrder(product: IProduct, quantity = 1, extra: Record<string, unknown> = {}) {
   const res = await app.fetch(
     new Request('http://localhost/orders/create', {
       method: 'POST',
@@ -29,6 +32,7 @@ async function createOrder(product: IProduct, quantity = 1) {
         contact: '+79990001122',
         email: 'buyer@example.com',
         deliveryAddress: 'ул. Тестовая, 1',
+        ...extra,
       }),
     }),
   )
@@ -248,6 +252,40 @@ describe('Payments E2E', () => {
       expect(row.paymentMethod).toBe('BankCard')
       expect(mailSpy).toHaveBeenCalledTimes(1)
       expect(mailSpy.mock.calls[0]![0].subject).toContain(`Оплачен заказ №${order.number}`)
+    })
+
+    it('состав не прочитался или письмо упало — оплата засчитана, письмо и Telegram всё равно', async () => {
+      setRobokassaEnv()
+      const savedBotToken = process.env.BOT_TOKEN
+      process.env.BOT_TOKEN = TEST_BOT_TOKEN
+      const notifySpy = spyOn(orderNotify, 'notifyOrderStatus').mockResolvedValue(undefined)
+      const createdSpy = spyOn(orderNotify, 'notifyOrderCreated').mockResolvedValue(undefined)
+      const itemsSpy = spyOn(OrderItemMethods, 'getByOrderIds').mockRejectedValue(new Error('db down'))
+      try {
+        const { order: first } = await createOrder(teddy, 1, { initData: signInitData(555002) })
+        const { order: second } = await createOrder(teddy, 1, { initData: signInitData(555002) })
+
+        // Состав не прочитался — письмо уходит без него.
+        const res = await app.fetch(signedResult(`${first.totalPrice}.000000`, first))
+        expect(await res.text()).toBe(`OK${first.number}`)
+        expect((await statusOf(first.id)).status).toBe('paid')
+        expect(mailSpy).toHaveBeenCalledTimes(1)
+        expect(mailSpy.mock.calls[0]![0].subject).toContain(`Оплачен заказ №${first.number}`)
+        expect(notifySpy).toHaveBeenCalledTimes(1)
+        expect(notifySpy.mock.calls[0]![0]).toBe(555002)
+
+        // Почта упала — покупатель в Telegram всё равно узнаёт об оплате.
+        mailSpy.mockRejectedValueOnce(new Error('smtp down'))
+        const again = await app.fetch(signedResult(`${second.totalPrice}.000000`, second))
+        expect(await again.text()).toBe(`OK${second.number}`)
+        expect(notifySpy).toHaveBeenCalledTimes(2)
+      } finally {
+        notifySpy.mockRestore()
+        createdSpy.mockRestore()
+        itemsSpy.mockRestore()
+        if (savedBotToken === undefined) delete process.env.BOT_TOKEN
+        else process.env.BOT_TOKEN = savedBotToken
+      }
     })
 
     it('повтор уведомления — снова OK, без второго письма', async () => {

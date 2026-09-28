@@ -13,11 +13,19 @@ export function parseInvId(value: string | undefined): number | null {
   return number > 0 && number <= MAX_INV_ID ? number : null
 }
 
-/** Письмо владелице с составом и уведомление покупателю в Telegram. Best-effort. */
+/**
+ * Письмо владелице с составом и уведомление покупателю в Telegram. Best-effort:
+ * заказ уже оплачен, поэтому ни сбой чтения состава, ни почта не мешают остальному.
+ */
 export async function announcePaidOrder(order: IOrder, telegramId: number | null): Promise<void> {
-  const items = await OrderItemMethods.getByOrderIds([order.id])
-
   try {
+    let items: Awaited<ReturnType<typeof OrderItemMethods.getByOrderIds>> = []
+    try {
+      items = await OrderItemMethods.getByOrderIds([order.id])
+    } catch (err) {
+      console.error(`Не удалось прочитать состав оплаченного заказа №${order.number}:`, err)
+    }
+
     await sendOwnerMail(
       buildOrderEmail(
         order,
