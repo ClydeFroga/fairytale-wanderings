@@ -3,6 +3,7 @@ import { OrderMethods } from '@global/database/methods/order'
 import { getRobokassaConfig } from '@global/robokassa/config'
 import { verifyResultSignature } from '@global/robokassa/signature'
 import { publicSiteUrl } from '@global/seo/config'
+import { isUuid } from '@global/utils/isUuid'
 import {
   InvalidPaymentSignatureError,
   OrderNotFoundError,
@@ -40,8 +41,10 @@ app.on(['GET', 'POST'], '/robokassa/result', async (c) => {
   const outSum = params.OutSum ?? ''
   const invIdRaw = params.InvId ?? ''
   const signature = params.SignatureValue ?? ''
+  // Свои параметры (Shp_order) входят в подпись — берём все, как пришли.
+  const shp = Object.fromEntries(Object.entries(params).filter(([name]) => name.startsWith('Shp_')))
 
-  if (!verifyResultSignature(config, { outSum, invId: invIdRaw, signature })) {
+  if (!verifyResultSignature(config, { outSum, invId: invIdRaw, signature, shp })) {
     throw new InvalidPaymentSignatureError()
   }
 
@@ -82,11 +85,15 @@ app.on(['GET', 'POST'], '/robokassa/result', async (c) => {
 
 app.on(['GET', 'POST'], '/robokassa/:outcome{success|fail}', async (c) => {
   const params = await readParams(c)
-  const invId = parseInvId(params.InvId)
-  const order = invId === null ? null : await OrderMethods.getByNumber(invId)
   const base = publicSiteUrl() ?? ''
 
-  return c.redirect(order ? `${base}/order/${order.id}` : `${base}/`, 302)
+  // Номер заказа последовательный, его легко перебрать — поэтому на страницу
+  // заказа ведём только по uuid из Shp_order, и то если он сходится с InvId.
+  const uuid = params.Shp_order ?? ''
+  const order = isUuid(uuid) ? await OrderMethods.getById(uuid) : null
+  const matches = order !== null && order.number === parseInvId(params.InvId)
+
+  return c.redirect(matches ? `${base}/order/${order.id}` : `${base}/`, 302)
 })
 
 export default app

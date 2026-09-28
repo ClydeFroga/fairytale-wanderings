@@ -15,6 +15,9 @@ type CreatedOrder = IOrder & { paymentUrl: string | null }
 
 const md5 = (value: string) => createHash('md5').update(value).digest('hex')
 
+// Заказа с таким номером и uuid в базе нет.
+const unknownOrder = { id: '00000000-0000-4000-8000-000000000000', number: 999 }
+
 async function createOrder(product: IProduct, quantity = 1) {
   const res = await app.fetch(
     new Request('http://localhost/orders/create', {
@@ -64,8 +67,10 @@ describe('Payments E2E', () => {
       expect(url.searchParams.get('OutSum')).toBe(outSum)
       expect(url.searchParams.get('Email')).toBe('buyer@example.com')
       expect(url.searchParams.get('IsTest')).toBe('1')
+      // По uuid из Shp_order Success/Fail вернут покупателя к заказу.
+      expect(url.searchParams.get('Shp_order')).toBe(order.id)
       expect(url.searchParams.get('SignatureValue')).toBe(
-        md5(`${RK_LOGIN}:${outSum}:${order.number}:${RK_PASSWORD1}`),
+        md5(`${RK_LOGIN}:${outSum}:${order.number}:${RK_PASSWORD1}:Shp_order=${order.id}`),
       )
 
       const expires = new Date(order.paymentExpiresAt!).getTime()
@@ -207,11 +212,17 @@ describe('Payments E2E', () => {
       })
     }
 
-    function signedResult(outSum: string, invId: number, extra: Record<string, string> = {}) {
+    // Робокасса возвращает Shp_order из ссылки и подписывает его вместе с суммой.
+    function signedResult(
+      outSum: string,
+      order: Pick<IOrder, 'id' | 'number'>,
+      extra: Record<string, string> = {},
+    ) {
       return resultRequest({
         OutSum: outSum,
-        InvId: String(invId),
-        SignatureValue: md5(`${outSum}:${invId}:${RK_PASSWORD2}`).toUpperCase(),
+        InvId: String(order.number),
+        Shp_order: order.id,
+        SignatureValue: md5(`${outSum}:${order.number}:${RK_PASSWORD2}:Shp_order=${order.id}`).toUpperCase(),
         ...extra,
       })
     }
@@ -226,7 +237,7 @@ describe('Payments E2E', () => {
       const { order } = await createOrder(teddy)
 
       const res = await app.fetch(
-        signedResult(`${order.totalPrice}.000000`, order.number, { PaymentMethod: 'BankCard' }),
+        signedResult(`${order.totalPrice}.000000`, order, { PaymentMethod: 'BankCard' }),
       )
 
       expect(res.status).toBe(200)
@@ -244,8 +255,8 @@ describe('Payments E2E', () => {
       const { order } = await createOrder(teddy)
       const outSum = `${order.totalPrice}.000000`
 
-      await app.fetch(signedResult(outSum, order.number))
-      const again = await app.fetch(signedResult(outSum, order.number))
+      await app.fetch(signedResult(outSum, order))
+      const again = await app.fetch(signedResult(outSum, order))
 
       expect(await again.text()).toBe(`OK${order.number}`)
       expect(mailSpy).toHaveBeenCalledTimes(1)
@@ -263,11 +274,29 @@ describe('Payments E2E', () => {
       expect((await statusOf(order.id)).status).toBe('created')
     })
 
+    it('подпись без Shp_order — 400: свои параметры входят в подпись', async () => {
+      setRobokassaEnv()
+      const { order } = await createOrder(teddy)
+      const outSum = `${order.totalPrice}.000000`
+
+      const res = await app.fetch(
+        resultRequest({
+          OutSum: outSum,
+          InvId: String(order.number),
+          Shp_order: order.id,
+          SignatureValue: md5(`${outSum}:${order.number}:${RK_PASSWORD2}`),
+        }),
+      )
+
+      expect(res.status).toBe(400)
+      expect((await statusOf(order.id)).status).toBe('created')
+    })
+
     it('сумма не совпала — 400, заказ ждёт оплаты', async () => {
       setRobokassaEnv()
       const { order } = await createOrder(teddy)
 
-      const res = await app.fetch(signedResult('1.00', order.number))
+      const res = await app.fetch(signedResult('1.00', order))
 
       expect(res.status).toBe(400)
       expect((await statusOf(order.id)).status).toBe('created')
@@ -276,7 +305,7 @@ describe('Payments E2E', () => {
     it('неизвестный InvId — 404', async () => {
       setRobokassaEnv()
 
-      const res = await app.fetch(signedResult('100.00', 999))
+      const res = await app.fetch(signedResult('100.00', unknownOrder))
 
       expect(res.status).toBe(404)
     })
@@ -288,8 +317,8 @@ describe('Payments E2E', () => {
       await db.update(orders).set({ status: 'cancelled' }).where(eq(orders.id, order.id))
       const outSum = `${order.totalPrice}.000000`
 
-      const res = await app.fetch(signedResult(outSum, order.number))
-      await app.fetch(signedResult(outSum, order.number))
+      const res = await app.fetch(signedResult(outSum, order))
+      await app.fetch(signedResult(outSum, order))
 
       expect(await res.text()).toBe(`OK${order.number}`)
       const row = await statusOf(order.id)
@@ -300,7 +329,7 @@ describe('Payments E2E', () => {
     })
 
     it('оплата выключена — 503', async () => {
-      const res = await app.fetch(signedResult('100.00', 1))
+      const res = await app.fetch(signedResult('100.00', unknownOrder))
 
       expect(res.status).toBe(503)
     })
@@ -317,24 +346,39 @@ describe('Payments E2E', () => {
       else process.env.PUBLIC_SITE_URL = savedSiteUrl
     })
 
-    it('возвращают покупателя на страницу заказа', async () => {
+    function returnTo(outcome: string, query: string) {
+      return app.fetch(new Request(`http://localhost/payments/robokassa/${outcome}?${query}`))
+    }
+
+    it('возвращают покупателя на страницу заказа по Shp_order', async () => {
       setRobokassaEnv()
       const { order } = await createOrder(teddy)
 
       for (const outcome of ['success', 'fail']) {
-        const res = await app.fetch(
-          new Request(`http://localhost/payments/robokassa/${outcome}?InvId=${order.number}&OutSum=1`),
-        )
+        const res = await returnTo(outcome, `InvId=${order.number}&OutSum=1&Shp_order=${order.id}`)
         expect(res.status).toBe(302)
         expect(res.headers.get('location')).toBe(`https://shop.test/order/${order.id}`)
       }
     })
 
-    it('неизвестный заказ — на главную', async () => {
-      const res = await app.fetch(new Request('http://localhost/payments/robokassa/success?InvId=999'))
+    it('без Shp_order, с кривым, чужим или неизвестным uuid — на главную', async () => {
+      setRobokassaEnv()
+      const { order } = await createOrder(teddy)
+      const { order: other } = await createOrder(teddy)
 
-      expect(res.status).toBe(302)
-      expect(res.headers.get('location')).toBe('https://shop.test/')
+      // InvId последовательный: по одному номеру uuid заказа не отдаём.
+      const queries = [
+        `InvId=${order.number}`,
+        `InvId=${order.number}&Shp_order=abc`,
+        `InvId=${order.number}&Shp_order=${other.id}`,
+        `InvId=${order.number}&Shp_order=${unknownOrder.id}`,
+        `InvId=999&Shp_order=${order.id}`,
+      ]
+      for (const query of queries) {
+        const res = await returnTo('success', query)
+        expect(res.status).toBe(302)
+        expect(res.headers.get('location')).toBe('https://shop.test/')
+      }
     })
   })
 })

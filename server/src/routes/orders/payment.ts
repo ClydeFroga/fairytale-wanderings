@@ -19,5 +19,8 @@ export function paymentUrlFor(order: IOrder, lines: ReceiptLine[]): string | nul
     email: order.email,
     receipt: config.receipt ? buildReceipt(lines, order.deliveryPrice, config.tax) : null,
     expiresAt: order.paymentExpiresAt,
+    // InvId последовательный — по нему одному Success/Fail не выдают страницу
+    // заказа; uuid приходит обратно в Shp_order.
+    shp: { order: order.id },
   })
 }

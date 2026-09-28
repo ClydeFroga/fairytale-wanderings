@@ -83,6 +83,27 @@ describe('robokassa signature', () => {
     expect(url.searchParams.get('SignatureValue')).toBe(md5(`shop:1890.00:42:${encoded}:pass1`))
   })
 
+  it('buildPaymentUrl с Shp_ — параметры в ссылке и в подписи после Pass1, по алфавиту', () => {
+    const receipt = buildReceipt([{ name: 'Мишка', quantity: 1, price: 750 }], null, 'none')
+    const url = new URL(
+      buildPaymentUrl(config, {
+        invId: 42,
+        outSum: 750,
+        description: 'Заказ 42',
+        receipt,
+        expiresAt,
+        shp: { order: 'abc', a: 'x' },
+      }),
+    )
+    const encoded = encodeURIComponent(JSON.stringify(receipt))
+
+    expect(url.searchParams.get('Shp_order')).toBe('abc')
+    expect(url.searchParams.get('Shp_a')).toBe('x')
+    expect(url.searchParams.get('SignatureValue')).toBe(
+      md5(`shop:750.00:42:${encoded}:pass1:Shp_a=x:Shp_order=abc`),
+    )
+  })
+
   it('buildPaymentUrl — сумма чека не равна OutSum → ошибка', () => {
     const receipt = buildReceipt([{ name: 'Мишка', quantity: 1, price: 750 }], null, 'none')
 
@@ -139,5 +160,22 @@ describe('robokassa signature', () => {
     expect(verifyResultSignature(config, { outSum: '1500.00', invId: '42', signature })).toBe(false)
     expect(verifyResultSignature(config, { outSum: '1500.000000', invId: '43', signature })).toBe(false)
     expect(verifyResultSignature(config, { outSum: '1500.000000', invId: '42', signature: '' })).toBe(false)
+  })
+
+  it('verifyResultSignature с Shp_ — OutSum:InvId:Pass2:Shp_a=..:Shp_b=.. по алфавиту', () => {
+    const signature = md5('1500.000000:42:pass2:Shp_a=x:Shp_order=abc')
+    const shp = { Shp_order: 'abc', Shp_a: 'x' }
+
+    expect(verifyResultSignature(config, { outSum: '1500.000000', invId: '42', signature, shp })).toBe(true)
+    // Без Shp_ или с подменённым значением подпись не сходится.
+    expect(verifyResultSignature(config, { outSum: '1500.000000', invId: '42', signature })).toBe(false)
+    expect(
+      verifyResultSignature(config, {
+        outSum: '1500.000000',
+        invId: '42',
+        signature,
+        shp: { ...shp, Shp_order: 'other' },
+      }),
+    ).toBe(false)
   })
 })

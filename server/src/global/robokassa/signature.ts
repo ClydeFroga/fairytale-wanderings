@@ -35,10 +35,18 @@ export type PaymentRequest = {
   email?: string | null
   receipt?: Receipt | null
   expiresAt: Date
+  shp?: Record<string, string> // свои параметры, ключи без префикса: { order } → Shp_order
 }
 
 function digest(hash: RobokassaHash, value: string): string {
   return createHash(hash).update(value, 'utf8').digest('hex')
+}
+
+/** Хвост подписи со своими параметрами: `Shp_a=1`, `Shp_b=2` — по алфавиту имён. */
+function shpParts(shp: Record<string, string>): string[] {
+  return Object.keys(shp)
+    .sort()
+    .map((name) => `${name}=${shp[name]}`)
 }
 
 export function formatOutSum(rub: number): string {
@@ -76,7 +84,7 @@ export function buildReceipt(lines: ReceiptLine[], deliveryPrice: number | null,
 }
 
 /**
- * Ссылка на платёжную страницу. Подпись: MerchantLogin:OutSum:InvId[:Receipt]:Пароль#1.
+ * Ссылка на платёжную страницу. Подпись: MerchantLogin:OutSum:InvId[:Receipt]:Пароль#1[:Shp_*=…].
  * Receipt в подписи — JSON, закодированный один раз; в query URLSearchParams
  * закодирует его ещё раз, и Робокасса после разбора получит ровно строку из подписи.
  */
@@ -107,6 +115,14 @@ export function buildPaymentUrl(config: RobokassaConfig, req: PaymentRequest): s
   }
 
   signed.push(config.password1)
+
+  // Shp_* Робокасса вернёт как есть в Result, Success и Fail.
+  const shp = Object.fromEntries(
+    Object.entries(req.shp ?? {}).map(([key, value]) => [`Shp_${key}`, value]),
+  )
+  signed.push(...shpParts(shp))
+  for (const [name, value] of Object.entries(shp)) params.set(name, value)
+
   params.set('SignatureValue', digest(config.hash, signed.join(':')))
 
   if (req.email) params.set('Email', req.email)
@@ -116,14 +132,16 @@ export function buildPaymentUrl(config: RobokassaConfig, req: PaymentRequest): s
 }
 
 /**
- * Подпись уведомления Result: OutSum:InvId:Пароль#2. Строки берём как пришли —
+ * Подпись уведомления Result: OutSum:InvId:Пароль#2[:Shp_*=…]. Строки берём как пришли —
  * Робокасса шлёт сумму с шестью знаками (1500.000000), пересобирать её нельзя.
+ * `shp` — все пришедшие параметры с префиксом Shp_, имена вместе с префиксом.
  */
 export function verifyResultSignature(
   config: RobokassaConfig,
-  params: { outSum: string; invId: string; signature: string },
+  params: { outSum: string; invId: string; signature: string; shp?: Record<string, string> },
 ): boolean {
-  const expected = Buffer.from(digest(config.hash, `${params.outSum}:${params.invId}:${config.password2}`))
+  const signed = [params.outSum, params.invId, config.password2, ...shpParts(params.shp ?? {})]
+  const expected = Buffer.from(digest(config.hash, signed.join(':')))
   const received = Buffer.from(params.signature.toLowerCase())
 
   return expected.length === received.length && timingSafeEqual(expected, received)
