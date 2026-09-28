@@ -8,6 +8,7 @@ import {
 import { buildParcels, type ParcelItem } from '@global/cdek/parcel'
 import {
   CdekNotConfiguredError,
+  DeliveryAddressMismatchError,
   DeliveryPointNotFoundError,
   DeliveryPriceChangedError,
   InvalidTariffError,
@@ -26,6 +27,7 @@ export type DeliveryLocation = {
 
 export type DeliveryInput = {
   deliveryMethod?: 'cdek_office' | 'cdek_door' | 'manual'
+  deliveryAddress?: string
   deliveryPointCode?: string
   deliveryTariffCode?: number
   deliveryPrice?: number
@@ -33,6 +35,23 @@ export type DeliveryInput = {
 }
 
 const CDEK_CURRENCY_RUB = 1 // так же кодирует рубли виджет
+
+// delivery_mode тарифа СДЭК, подходящие способу: курьер везёт до двери
+// (1 дверь-дверь, 3 склад-дверь), ПВЗ — до склада (2 дверь-склад, 4 склад-склад).
+const MODES: Record<'cdek_office' | 'cdek_door', number[]> = {
+  cdek_door: [1, 3],
+  cdek_office: [2, 4],
+}
+
+/**
+ * Курьеру уходит адрес заказа, а цена посчитана до адреса из виджета — они
+ * должны совпадать. Клиент дописывает только квартиру: `<адрес>, кв. <N>`
+ * (client/src/stores/cart.ts, deliveryPayload).
+ */
+function matchesQuotedAddress(deliveryAddress: string, quotedAddress: string): boolean {
+  const quoted = quotedAddress.trim()
+  return deliveryAddress.trim() === quoted || deliveryAddress.startsWith(`${quoted}, кв. `)
+}
 
 /**
  * Серверная цена доставки в рублях. null — не СДЭК (ручной адрес): доставка
@@ -59,6 +78,9 @@ export async function quoteDelivery(input: DeliveryInput, items: ParcelItem[]): 
     toLocation = { code: office.city_code }
   } else {
     const location = input.deliveryLocation!
+    if (!matchesQuotedAddress(input.deliveryAddress ?? '', location.address)) {
+      throw new DeliveryAddressMismatchError()
+    }
     toLocation = {
       address: location.address,
       postal_code: location.postal_code ?? undefined,
@@ -75,7 +97,11 @@ export async function quoteDelivery(input: DeliveryInput, items: ParcelItem[]): 
   })
 
   const quote = quotes.find((q) => q.tariff_code === tariffCode)
-  if (!quote) throw new InvalidTariffError(tariffCode)
+  // Пустой CDEK_TARIFFS_* пропускает любой тариф — режим доставки не даёт
+  // посчитать курьера по дешёвому тарифу до ПВЗ и наоборот.
+  if (!quote || (quote.delivery_mode !== undefined && !MODES[method].includes(quote.delivery_mode))) {
+    throw new InvalidTariffError(tariffCode)
+  }
 
   // Копейки в заказе не храним — виджет на клиенте округляет так же.
   const price = Math.round(quote.delivery_sum)

@@ -126,6 +126,67 @@ describe("Orders E2E", () => {
     });
   });
 
+  it("POST /orders/create — курьер СДЭК: адрес заказа не тот, что посчитан → 400 CDEK_ADDRESS_MISMATCH", async () => {
+    setCdekEnv();
+    const calls = stubCdek();
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+
+    // Цена посчитана до Москвы, а везти просят во Владивосток.
+    const bodies = [
+      "Владивосток, ул. Светланская, 1",
+      "Москва, ул. Тверская, 10",
+      "Москва, ул. Тверская, 1, стр. 2",
+    ].map((deliveryAddress) => ({
+      items: [{ productId: product._id, quantity: 1 }],
+      contact: "+79990001122",
+      deliveryMethod: "cdek_door",
+      deliveryAddress,
+      deliveryLocation: { address: "Москва, ул. Тверская, 1", postal_code: "125009", country_code: "RU" },
+      deliveryTariffCode: 137,
+      deliveryPrice: 520,
+    }));
+
+    for (const body of bodies) {
+      const res = await app.fetch(
+        new Request("http://localhost/orders/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+      );
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { code: string }).code).toBe("CDEK_ADDRESS_MISMATCH");
+    }
+    expect((await ProductMethods.getById(product._id))?.stock).toBe(product.stock);
+    expect(calls.some((c) => c.url.includes("/calculator/tarifflist"))).toBe(false);
+  });
+
+  it("POST /orders/create — курьер СДЭК с тарифом до ПВЗ → 400 CDEK_INVALID_TARIFF", async () => {
+    // Списков CDEK_TARIFFS_* нет — режим доставки тарифа проверяется по ответу СДЭК.
+    setCdekEnv();
+    stubCdek();
+    const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
+
+    const res = await app.fetch(
+      new Request("http://localhost/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ productId: product._id, quantity: 1 }],
+          contact: "+79990001122",
+          deliveryMethod: "cdek_door",
+          deliveryAddress: "Москва, ул. Тверская, 1",
+          deliveryLocation: { address: "Москва, ул. Тверская, 1", postal_code: "125009", country_code: "RU" },
+          deliveryTariffCode: 136,
+          deliveryPrice: 350,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { code: string }).code).toBe("CDEK_INVALID_TARIFF");
+  });
+
   it("POST /orders/create — 400, если курьеру не передан адрес из виджета", async () => {
     const product = products.find((p) => p.name === "Вязаный мишка Тедди")!;
 

@@ -145,7 +145,9 @@ export function calculate(payload: unknown): Promise<CdekProxyResponse> {
 }
 
 export type CdekOfficeInfo = { code: string; city_code: number }
-export type CdekTariffQuote = { tariff_code: number; delivery_sum: number }
+// delivery_mode: 1 дверь-дверь, 2 дверь-склад, 3 склад-дверь, 4 склад-склад,
+// 6 дверь-постамат, 7 склад-постамат. В старых ответах его может не быть.
+export type CdekTariffQuote = { tariff_code: number; delivery_sum: number; delivery_mode?: number }
 
 function parseJson<T>(body: string): T {
   try {

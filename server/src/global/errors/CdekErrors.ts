@@ -21,6 +21,13 @@ export class InvalidTariffError extends AppError {
   }
 }
 
+/** Адрес заказа для курьера не тот, до которого посчитана доставка. */
+export class DeliveryAddressMismatchError extends AppError {
+  constructor() {
+    super('Адрес доставки не совпадает с выбранным в виджете', 400, 'CDEK_ADDRESS_MISMATCH')
+  }
+}
+
 export class DeliveryPointNotFoundError extends AppError {
   constructor(code: string) {
     super(`Пункт выдачи не найден: ${code}`, 400, 'CDEK_POINT_NOT_FOUND', { code })

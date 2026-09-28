@@ -38,17 +38,19 @@ export function restoreFetch() {
 type CdekStubOptions = {
   // Код ПВЗ → код города. Точки с кодом, начинающимся на MISSING, «не существуют».
   cityCode?: number
-  tariffs?: Array<{ tariff_code: number; delivery_sum: number }>
+  tariffs?: Array<{ tariff_code: number; delivery_sum: number; delivery_mode?: number }>
   calculatorStatus?: number
 }
 
 /** Подменяет fetch ответами СДЭК: токен, ПВЗ по коду, калькулятор. */
 export function stubCdek(options: CdekStubOptions = {}): StubCall[] {
   const calls: StubCall[] = []
+  // delivery_mode: 4 — склад-склад (до ПВЗ), 3 — склад-дверь (курьер).
   const tariffs = options.tariffs ?? [
-    { tariff_code: 136, delivery_sum: 350.4 },
-    { tariff_code: 483, delivery_sum: 600 },
-    { tariff_code: 137, delivery_sum: 520 },
+    { tariff_code: 136, delivery_sum: 350.4, delivery_mode: 4 },
+    { tariff_code: 483, delivery_sum: 600, delivery_mode: 4 },
+    { tariff_code: 137, delivery_sum: 520, delivery_mode: 3 },
+    { tariff_code: 482, delivery_sum: 800, delivery_mode: 3 },
   ]
 
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
