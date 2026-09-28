@@ -58,16 +58,22 @@ function deliveryRows(order: IOrder): Array<[string, string]> {
 /**
  * Письмо владелице о заказе: состав, суммы, контакт, доставка.
  * kind = 'new' — заказ без онлайн-оплаты, 'paid' — Робокасса подтвердила оплату.
+ * isTest — оплата в тестовом режиме Робокассы: денег нет, письмо помечаем явно.
  */
 export function buildOrderEmail(
   order: IOrder,
   items: OrderEmailItem[],
   kind: "new" | "paid" = "new",
+  options: { isTest?: boolean } = {},
 ): MailMessage {
+  const isTest = kind === "paid" && options.isTest === true;
   const title = kind === "paid" ? `Оплачен заказ №${order.number}` : `Новый заказ №${order.number}`;
-  const subject = `${title} на сумму ${formatPrice(order.totalPrice)}`;
+  const subject = `${isTest ? "ТЕСТ: " : ""}${title} на сумму ${formatPrice(order.totalPrice)}`;
   const payment =
     kind === "paid" ? `Оплачен онлайн${order.paymentMethod ? ` (${order.paymentMethod})` : ""}` : null;
+  const testNote = isTest
+    ? "Тестовая оплата: Робокасса в тестовом режиме, реальные деньги не поступали. Заказ не отправляйте."
+    : null;
 
   const rows = items.map((it) => ({
     name: it.name,
@@ -80,6 +86,7 @@ export function buildOrderEmail(
   const textLines = [
     subject,
     "",
+    ...(testNote ? [testNote, ""] : []),
     "Состав заказа:",
     ...rows.map((r) => `— ${r.name} × ${r.quantity} = ${formatPrice(r.sum)}`),
     "",
@@ -107,7 +114,8 @@ export function buildOrderEmail(
 
   const html = `
     <div style="font-family:Arial,sans-serif;color:#1b140e;max-width:560px;">
-      <h2 style="margin:0 0 16px;">${title}</h2>
+      <h2 style="margin:0 0 16px;">${isTest ? "ТЕСТ: " : ""}${title}</h2>
+      ${testNote ? `<p style="margin:0 0 16px;padding:8px 12px;background:#fdecc8;"><b>${testNote}</b></p>` : ""}
       <table style="border-collapse:collapse;width:100%;margin-bottom:16px;">
         <thead>
           <tr>

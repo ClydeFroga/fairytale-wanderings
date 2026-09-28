@@ -68,7 +68,7 @@ app.on(['GET', 'POST'], '/robokassa/result', async (c) => {
   const paid = order.status === 'created' ? await OrderMethods.markPaid(order.id, payment) : null
 
   if (paid) {
-    await announcePaidOrder(paid, order.telegramId)
+    await announcePaidOrder(paid, order.telegramId, { isTest: config.isTest })
   } else {
     // Заказ успели отменить (истёк срок или вручную) — деньги пришли, товар уже
     // на складе. Фиксируем оплату один раз и зовём владелицу разобраться.

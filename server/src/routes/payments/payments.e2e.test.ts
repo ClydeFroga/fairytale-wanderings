@@ -251,7 +251,23 @@ describe('Payments E2E', () => {
       expect(row.paidAt).not.toBeNull()
       expect(row.paymentMethod).toBe('BankCard')
       expect(mailSpy).toHaveBeenCalledTimes(1)
-      expect(mailSpy.mock.calls[0]![0].subject).toContain(`Оплачен заказ №${order.number}`)
+      const mail = mailSpy.mock.calls[0]![0]
+      expect(mail.subject).toContain(`Оплачен заказ №${order.number}`)
+      // По умолчанию тестовый режим — владелица не должна принять его за деньги.
+      expect(mail.subject).toStartWith('ТЕСТ: ')
+      expect(mail.text).toContain('Тестовая оплата')
+      expect(mail.html).toContain('Тестовая оплата')
+    })
+
+    it('боевой режим — письмо об оплате без пометки теста', async () => {
+      setRobokassaEnv({ ROBOKASSA_TEST: 'false' })
+      const { order } = await createOrder(teddy)
+
+      await app.fetch(signedResult(`${order.totalPrice}.000000`, order))
+
+      const mail = mailSpy.mock.calls[0]![0]
+      expect(mail.subject).toStartWith(`Оплачен заказ №${order.number}`)
+      expect(mail.text).not.toContain('Тестовая оплата')
     })
 
     it('состав не прочитался или письмо упало — оплата засчитана, письмо и Telegram всё равно', async () => {

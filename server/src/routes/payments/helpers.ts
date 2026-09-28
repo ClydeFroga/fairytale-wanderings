@@ -17,7 +17,11 @@ export function parseInvId(value: string | undefined): number | null {
  * Письмо владелице с составом и уведомление покупателю в Telegram. Best-effort:
  * заказ уже оплачен, поэтому ни сбой чтения состава, ни почта не мешают остальному.
  */
-export async function announcePaidOrder(order: IOrder, telegramId: number | null): Promise<void> {
+export async function announcePaidOrder(
+  order: IOrder,
+  telegramId: number | null,
+  options: { isTest: boolean },
+): Promise<void> {
   try {
     let items: Awaited<ReturnType<typeof OrderItemMethods.getByOrderIds>> = []
     try {
@@ -35,6 +39,7 @@ export async function announcePaidOrder(order: IOrder, telegramId: number | null
           price: item.price,
         })),
         'paid',
+        { isTest: options.isTest },
       ),
     )
   } catch (err) {
