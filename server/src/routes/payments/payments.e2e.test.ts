@@ -7,7 +7,7 @@ import { db } from '@global/database/DatabaseSingleton'
 import { orders, type IOrder, type IProduct } from '@global/database/shema'
 import * as mailer from '@global/mail/mailer'
 import { PAYMENT_PAGE_URL } from '@global/robokassa/signature'
-import { RK_LOGIN, RK_PASSWORD1, clearRobokassaEnv, setRobokassaEnv } from '../../test/e2e/robokassa'
+import { RK_LOGIN, RK_PASSWORD1, RK_PASSWORD2, clearRobokassaEnv, setRobokassaEnv } from '../../test/e2e/robokassa'
 
 const app = createApp()
 
@@ -196,5 +196,145 @@ describe('Payments E2E', () => {
     setRobokassaEnv()
     const on = await app.fetch(new Request('http://localhost/payments/config'))
     expect(await on.json()).toEqual({ enabled: true })
+  })
+
+  describe('Result URL', () => {
+    function resultRequest(fields: Record<string, string>) {
+      return new Request('http://localhost/payments/robokassa/result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(fields),
+      })
+    }
+
+    function signedResult(outSum: string, invId: number, extra: Record<string, string> = {}) {
+      return resultRequest({
+        OutSum: outSum,
+        InvId: String(invId),
+        SignatureValue: md5(`${outSum}:${invId}:${RK_PASSWORD2}`).toUpperCase(),
+        ...extra,
+      })
+    }
+
+    async function statusOf(id: string) {
+      const [row] = await db.select().from(orders).where(eq(orders.id, id))
+      return row!
+    }
+
+    it('верная подпись — заказ оплачен, OK{InvId}, письмо владелице', async () => {
+      setRobokassaEnv()
+      const { order } = await createOrder(teddy)
+
+      const res = await app.fetch(
+        signedResult(`${order.totalPrice}.000000`, order.number, { PaymentMethod: 'BankCard' }),
+      )
+
+      expect(res.status).toBe(200)
+      expect(await res.text()).toBe(`OK${order.number}`)
+      const row = await statusOf(order.id)
+      expect(row.status).toBe('paid')
+      expect(row.paidAt).not.toBeNull()
+      expect(row.paymentMethod).toBe('BankCard')
+      expect(mailSpy).toHaveBeenCalledTimes(1)
+      expect(mailSpy.mock.calls[0]![0].subject).toContain(`Оплачен заказ №${order.number}`)
+    })
+
+    it('повтор уведомления — снова OK, без второго письма', async () => {
+      setRobokassaEnv()
+      const { order } = await createOrder(teddy)
+      const outSum = `${order.totalPrice}.000000`
+
+      await app.fetch(signedResult(outSum, order.number))
+      const again = await app.fetch(signedResult(outSum, order.number))
+
+      expect(await again.text()).toBe(`OK${order.number}`)
+      expect(mailSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('неверная подпись — 400, заказ ждёт оплаты', async () => {
+      setRobokassaEnv()
+      const { order } = await createOrder(teddy)
+
+      const res = await app.fetch(
+        resultRequest({ OutSum: `${order.totalPrice}.00`, InvId: String(order.number), SignatureValue: 'deadbeef' }),
+      )
+
+      expect(res.status).toBe(400)
+      expect((await statusOf(order.id)).status).toBe('created')
+    })
+
+    it('сумма не совпала — 400, заказ ждёт оплаты', async () => {
+      setRobokassaEnv()
+      const { order } = await createOrder(teddy)
+
+      const res = await app.fetch(signedResult('1.00', order.number))
+
+      expect(res.status).toBe(400)
+      expect((await statusOf(order.id)).status).toBe('created')
+    })
+
+    it('неизвестный InvId — 404', async () => {
+      setRobokassaEnv()
+
+      const res = await app.fetch(signedResult('100.00', 999))
+
+      expect(res.status).toBe(404)
+    })
+
+    it('оплата отменённого заказа — остаётся отменённым, paid_at записан, письмо о возврате один раз', async () => {
+      setRobokassaEnv()
+      const { order } = await createOrder(teddy)
+      // Так же выглядит и отмена сборщиком по сроку, и ручная отмена в CRM.
+      await db.update(orders).set({ status: 'cancelled' }).where(eq(orders.id, order.id))
+      const outSum = `${order.totalPrice}.000000`
+
+      const res = await app.fetch(signedResult(outSum, order.number))
+      await app.fetch(signedResult(outSum, order.number))
+
+      expect(await res.text()).toBe(`OK${order.number}`)
+      const row = await statusOf(order.id)
+      expect(row.status).toBe('cancelled')
+      expect(row.paidAt).not.toBeNull()
+      expect(mailSpy).toHaveBeenCalledTimes(1)
+      expect(mailSpy.mock.calls[0]![0].subject).toContain('отменённый')
+    })
+
+    it('оплата выключена — 503', async () => {
+      const res = await app.fetch(signedResult('100.00', 1))
+
+      expect(res.status).toBe(503)
+    })
+  })
+
+  describe('Success / Fail', () => {
+    // Bun сам подхватывает server/.env — адрес сайта задаём явно.
+    const savedSiteUrl = process.env.PUBLIC_SITE_URL
+    beforeEach(() => {
+      process.env.PUBLIC_SITE_URL = 'https://shop.test'
+    })
+    afterEach(() => {
+      if (savedSiteUrl === undefined) delete process.env.PUBLIC_SITE_URL
+      else process.env.PUBLIC_SITE_URL = savedSiteUrl
+    })
+
+    it('возвращают покупателя на страницу заказа', async () => {
+      setRobokassaEnv()
+      const { order } = await createOrder(teddy)
+
+      for (const outcome of ['success', 'fail']) {
+        const res = await app.fetch(
+          new Request(`http://localhost/payments/robokassa/${outcome}?InvId=${order.number}&OutSum=1`),
+        )
+        expect(res.status).toBe(302)
+        expect(res.headers.get('location')).toBe(`https://shop.test/order/${order.id}`)
+      }
+    })
+
+    it('неизвестный заказ — на главную', async () => {
+      const res = await app.fetch(new Request('http://localhost/payments/robokassa/success?InvId=999'))
+
+      expect(res.status).toBe(302)
+      expect(res.headers.get('location')).toBe('https://shop.test/')
+    })
   })
 })

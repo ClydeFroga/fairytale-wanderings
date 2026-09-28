@@ -49,18 +49,25 @@ function deliveryRows(order: IOrder): Array<[string, string]> {
   rows.push(["Доставка", order.deliveryAddress || "—"]);
 
   if (order.deliveryPrice !== null) {
-    rows.push([
-      "Стоимость доставки",
-      `${formatPrice(order.deliveryPrice)} — оплачивается отдельно, в сумму заказа не входит`,
-    ]);
+    rows.push(["Стоимость доставки", `${formatPrice(order.deliveryPrice)} — входит в сумму заказа`]);
   }
 
   return rows;
 }
 
-/** Формирует письмо владелице о новом заказе: состав, суммы, контакт, доставка. */
-export function buildOrderEmail(order: IOrder, items: OrderEmailItem[]): MailMessage {
-  const subject = `Новый заказ на сумму ${formatPrice(order.totalPrice)}`;
+/**
+ * Письмо владелице о заказе: состав, суммы, контакт, доставка.
+ * kind = 'new' — заказ без онлайн-оплаты, 'paid' — Робокасса подтвердила оплату.
+ */
+export function buildOrderEmail(
+  order: IOrder,
+  items: OrderEmailItem[],
+  kind: "new" | "paid" = "new",
+): MailMessage {
+  const title = kind === "paid" ? `Оплачен заказ №${order.number}` : `Новый заказ №${order.number}`;
+  const subject = `${title} на сумму ${formatPrice(order.totalPrice)}`;
+  const payment =
+    kind === "paid" ? `Оплачен онлайн${order.paymentMethod ? ` (${order.paymentMethod})` : ""}` : null;
 
   const rows = items.map((it) => ({
     name: it.name,
@@ -77,13 +84,14 @@ export function buildOrderEmail(order: IOrder, items: OrderEmailItem[]): MailMes
     ...rows.map((r) => `— ${r.name} × ${r.quantity} = ${formatPrice(r.sum)}`),
     "",
     `Итого: ${formatPrice(order.totalPrice)}`,
+    ...(payment ? [`Оплата: ${payment}`] : []),
     "",
     `Имя: ${order.customerName || "—"}`,
     `Телефон: ${order.contact || "—"}`,
     `Почта: ${order.email || "—"}`,
     ...delivery.map(([label, value]) => `${label}: ${value}`),
     `Канал: ${CHANNEL_LABEL[order.channel] ?? order.channel}`,
-    `Номер заказа: ${order.id}`,
+    `ID заказа: ${order.id}`,
   ];
 
   const itemRowsHtml = rows
@@ -99,7 +107,7 @@ export function buildOrderEmail(order: IOrder, items: OrderEmailItem[]): MailMes
 
   const html = `
     <div style="font-family:Arial,sans-serif;color:#1b140e;max-width:560px;">
-      <h2 style="margin:0 0 16px;">Новый заказ</h2>
+      <h2 style="margin:0 0 16px;">${title}</h2>
       <table style="border-collapse:collapse;width:100%;margin-bottom:16px;">
         <thead>
           <tr>
@@ -113,6 +121,7 @@ export function buildOrderEmail(order: IOrder, items: OrderEmailItem[]): MailMes
       <p style="font-size:16px;font-weight:bold;margin:0 0 16px;">
         Итого: ${formatPrice(order.totalPrice)}
       </p>
+      ${payment ? `<p style="margin:0 0 16px;"><b>Оплата:</b> ${escapeHtml(payment)}</p>` : ""}
       <p style="margin:0 0 4px;"><b>Имя:</b> ${escapeHtml(order.customerName || "—")}</p>
       <p style="margin:0 0 4px;"><b>Телефон:</b> ${escapeHtml(order.contact || "—")}</p>
       <p style="margin:0 0 4px;"><b>Почта:</b> ${escapeHtml(order.email || "—")}</p>
@@ -123,8 +132,37 @@ export function buildOrderEmail(order: IOrder, items: OrderEmailItem[]): MailMes
         )
         .join("")}
       <p style="margin:0 0 4px;"><b>Канал:</b> ${CHANNEL_LABEL[order.channel] ?? order.channel}</p>
-      <p style="margin:16px 0 0;color:#97704e;font-size:12px;">Номер заказа: ${order.id}</p>
+      <p style="margin:16px 0 0;color:#97704e;font-size:12px;">ID заказа: ${order.id}</p>
     </div>`;
 
   return { subject, text: textLines.join("\n"), html };
+}
+
+/**
+ * Оплата пришла по уже отменённому заказу (истёк срок или отменили вручную):
+ * товар вернулся на склад, деньги у Робокассы — владелице нужно решить вручную.
+ */
+export function buildLatePaymentEmail(order: IOrder): MailMessage {
+  const subject = `Оплачен отменённый заказ №${order.number}`;
+  const lines = [
+    `Робокасса подтвердила оплату ${formatPrice(order.totalPrice)} за заказ №${order.number},`,
+    "но заказ к этому моменту уже был отменён, и товар вернулся на склад.",
+    "Оформите возврат в личном кабинете Робокассы или свяжитесь с покупателем.",
+    "",
+    `Имя: ${order.customerName || "—"}`,
+    `Телефон: ${order.contact || "—"}`,
+    `Почта: ${order.email || "—"}`,
+    `ID заказа: ${order.id}`,
+  ];
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;color:#1b140e;max-width:560px;">
+      <h2 style="margin:0 0 16px;">${subject}</h2>
+      ${lines
+        .filter(Boolean)
+        .map((line) => `<p style="margin:0 0 4px;">${escapeHtml(line)}</p>`)
+        .join("")}
+    </div>`;
+
+  return { subject, text: lines.join("\n"), html };
 }
