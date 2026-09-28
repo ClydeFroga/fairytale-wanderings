@@ -48,10 +48,16 @@ src/
       validator.ts
       statusFlow.ts             # цепочка статусов и допустимые переходы
       helpers.ts                # склейка заказов с их позициями
+      delivery.ts               # пересчёт цены доставки СДЭК на сервере
+      payment.ts                # подписанная ссылка на оплату заказа
       orders.e2e.test.ts
     cdek/
       route.ts                  # /cdek/config + /cdek/service — прокси для виджета ПВЗ
       cdek.e2e.test.ts
+    payments/
+      route.ts                  # /payments/config, Result/Success/Fail Робокассы
+      helpers.ts                # письмо/уведомление об оплате, разбор InvId
+      payments.e2e.test.ts
   test/e2e/                     # инфраструктура E2E: preload, postgres, migrate, reset
     preload.ts  postgres.ts  migrate.ts  db.ts
   global/
@@ -69,7 +75,9 @@ src/
       seed.ts                   # CLI: bun run db:seed
     errors/                     # классы ошибок (AppError + наследники)
     mail/                       # SMTP-уведомление (nodemailer): mailer.ts + orderEmail.ts
-    cdek/                       # доставка СДЭК: config.ts (env) + api.ts (токен, прокси, кэш)
+    cdek/                       # доставка СДЭК: config.ts (env) + api.ts (токен, прокси, кэш), parcel.ts (посылка для расчёта)
+    robokassa/                  # config.ts (env) + signature.ts (подписи, чек, ссылка)
+    payments/                   # expireOrders.ts — отмена неоплаченных заказов по сроку
     telegram/                   # initData.ts (проверка Mini App), admins.ts, webAppUrl.ts
     auth/                       # adminSession.ts — JWT-кука админки (hono/jwt)
     utils/                      # upload (сохранение/удаление картинок), slugify, formatPhoneNumber
