@@ -166,8 +166,9 @@ export const useCartStore = defineStore('cart', () => {
     clearError(product._id)
   }
 
-  // Перезагружаем товары корзины (остаток мог измениться) и подсвечиваем нехватки.
-  async function handleStockShortage(shortages: StockShortage[]) {
+  // Перечитывает товары корзины с сервера (остаток, вес, габариты могли
+  // измениться) и обновляет их в entriesById, не трогая состав/количество.
+  async function refreshCartProducts() {
     const fresh = await Promise.all(
       Array.from(entriesById.value.keys()).map((id) => getProduct(id)),
     )
@@ -175,6 +176,11 @@ export const useCartStore = defineStore('cart', () => {
       const existing = entriesById.value.get(product._id)
       if (existing) existing.product = product
     }
+  }
+
+  // Перезагружаем товары корзины (остаток мог измениться) и подсвечиваем нехватки.
+  async function handleStockShortage(shortages: StockShortage[]) {
+    await refreshCartProducts()
 
     insufficientProductIds.value = new Set(shortages.map((s) => s.productId))
     orderError.value =
@@ -185,13 +191,7 @@ export const useCartStore = defineStore('cart', () => {
   // и габариты товаров в корзине: перечитываем товары, иначе виджет посчитает
   // ту же неверную цену снова. Точку покупатель выбирает заново.
   async function handleDeliveryPriceChanged(price: number) {
-    const fresh = await Promise.all(
-      Array.from(entriesById.value.keys()).map((id) => getProduct(id)),
-    )
-    for (const product of fresh) {
-      const existing = entriesById.value.get(product._id)
-      if (existing) existing.product = product
-    }
+    await refreshCartProducts()
 
     cdekSelection.value = null
     orderError.value = `Стоимость доставки изменилась: ${price.toLocaleString('ru-RU')} ₽. Выберите пункт выдачи ещё раз.`
