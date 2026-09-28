@@ -1,5 +1,6 @@
 import { DatabaseSingleton } from '@global/database/DatabaseSingleton'
 import { warnIfMissingPublicSiteUrl } from '@global/seo/config'
+import { startPaymentExpiry } from '@global/payments/expireOrders'
 import { Bot } from './bot/main'
 import { createServerApp } from './app'
 import { serveClient, serveUploads } from './middleware/staticFiles'
@@ -9,6 +10,9 @@ const app = createServerApp()
 
 await DatabaseSingleton.getInstance().connect()
 warnIfMissingPublicSiteUrl()
+
+// Отмена неоплаченных заказов по сроку — возвращает товар на склад.
+startPaymentExpiry()
 
 async function startBot() {
   const token = process.env.BOT_TOKEN
