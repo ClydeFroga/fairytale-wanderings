@@ -1,77 +1,44 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { getAbout, type SellerInfo } from '@/api/about'
-import { hasDialableDigits, telHref } from '@/scripts/about'
+import { onMounted } from 'vue'
+import DocumentLink from '@/components/global/DocumentLink.vue'
+import { useTermsStore } from '@/stores/terms'
 
 // Имя из двух слов: «Footer» — одно слово, а eslint (vue/multi-word-component-names) такое не пропускает.
 defineOptions({ name: 'SiteFooter' })
 
-const router = useRouter()
-const year = new Date().getFullYear()
+// Робокасса проверяет, что условия, контакты и оферта видны на сайте — отсюда
+// они доступны с любой публичной страницы.
+const links = [
+  { to: '/about', label: 'Обо мне' },
+  { to: '/terms#payment', label: 'Оплата' },
+  { to: '/terms#delivery', label: 'Доставка' },
+  { to: '/terms#returns', label: 'Возврат' },
+  { to: '/terms#contacts', label: 'Контакты' },
+]
 
-function goToSection(id: string) {
-  void router.push({ path: '/', hash: `#${id}` })
-}
-const seller = ref<SellerInfo | null>(null)
-
-onMounted(async () => {
-  try {
-    seller.value = (await getAbout()).seller
-  } catch {
-    seller.value = null
-  }
-})
-
-const contacts = computed(() => {
-  const info = seller.value
-  if (!info) return []
-
-  const items: { label: string; href: string; external: boolean }[] = []
-  if (info.phone && hasDialableDigits(info.phone)) {
-    items.push({ label: info.phone, href: telHref(info.phone), external: false })
-  }
-  if (info.email) {
-    items.push({ label: info.email, href: `mailto:${info.email}`, external: false })
-  }
-  for (const link of info.links) {
-    if (link.label && link.url) {
-      items.push({ label: link.label, href: link.url, external: true })
-    }
-  }
-  return items
-})
+// Ссылки на файлы показываем, только если владелица их загрузила.
+const termsStore = useTermsStore()
+onMounted(() => termsStore.ensureLoaded())
 </script>
 
 <template>
-  <footer class="site-footer">
-    <div class="container footer-inner">
-      <div class="footer-brand">
-        <div class="footer-title">Сказка странствий</div>
-        <p>Керамика ручной работы.</p>
-      </div>
-      <div class="footer-cols">
-        <div class="footer-col">
-          <div class="footer-col-title">Магазин</div>
-          <a href="/#catalog" @click.prevent="goToSection('catalog')">Каталог</a>
-          <RouterLink to="/about">О мастере</RouterLink>
-          <a href="/#delivery" @click.prevent="goToSection('delivery')">Доставка и оплата</a>
-        </div>
-        <div v-if="contacts.length" class="footer-col">
-          <div class="footer-col-title">Связаться</div>
-          <a
-            v-for="item in contacts"
-            :key="item.href + item.label"
-            :href="item.href"
-            :target="item.external ? '_blank' : undefined"
-            :rel="item.external ? 'noopener noreferrer' : undefined"
+  <footer class="footer">
+    <nav aria-label="Информация о магазине">
+      <ul class="footer-links">
+        <li v-for="link in links" :key="link.to">
+          <RouterLink :to="link.to" class="footer-link">{{ link.label }}</RouterLink>
+        </li>
+        <li v-if="termsStore.data?.offer">
+          <DocumentLink kind="offer" class="footer-link">Публичная оферта</DocumentLink>
+        </li>
+        <li v-if="termsStore.data?.privacy">
+          <DocumentLink kind="privacy" class="footer-link"
+            >Политика конфиденциальности</DocumentLink
           >
-            {{ item.label }}
-          </a>
-        </div>
-      </div>
-    </div>
-    <div class="container footer-bottom">© {{ year }} Сказка странствий</div>
+        </li>
+      </ul>
+    </nav>
+    <p class="footer-copy">© Сказка Странствий</p>
   </footer>
 </template>
 

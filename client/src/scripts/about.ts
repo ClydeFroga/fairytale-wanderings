@@ -15,3 +15,13 @@ export function hasDialableDigits(phone: string): boolean {
 export function telHref(phone: string): string {
   return `tel:${phone.replace(/[^\d+]/g, '')}`
 }
+
+/** Есть ли что показать в блоке продавца: пустой блок скрываем целиком. */
+export function hasSellerInfo(
+  seller: { fullName: string; inn: string; phone: string; email: string; links: unknown[] } | null,
+): boolean {
+  return (
+    !!seller &&
+    !!(seller.fullName || seller.inn || seller.phone || seller.email || seller.links.length)
+  )
+}

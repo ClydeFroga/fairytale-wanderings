@@ -5,14 +5,20 @@ import { useCartStore } from '@/stores/cart'
 import MakeOrderButton from '@/components/global/MakeOrderButton.vue'
 import FormField from '@/components/global/FormField.vue'
 import CdekDelivery from '@/components/global/CdekDelivery.vue'
+import DocumentLink from '@/components/global/DocumentLink.vue'
 import { isTelegram } from '@/scripts/telegram'
 import { imageUrl } from '@/scripts/images'
 import { getMe } from '@/api/users'
 import { getCdekConfig, type CdekSettings } from '@/api/cdek'
 import { getPaymentConfig } from '@/api/payments'
 import { buildParcels } from '@/scripts/parcel'
+import { useTermsStore } from '@/stores/terms'
 
 const cartStore = useCartStore()
+
+// Строка согласия под кнопкой ссылается на файлы оферты и политики, если они загружены.
+const termsStore = useTermsStore()
+onMounted(() => termsStore.ensureLoaded())
 
 // Настройки виджета СДЭК приходят с сервера. Доставка у магазина одна — СДЭК;
 // поле адреса остаётся только как запасной выход, если интеграция не настроена
@@ -199,6 +205,18 @@ onMounted(async () => {
       <div class="flex px-4 py-3">
         <MakeOrderButton class="truncate" :text="orderButtonText" />
       </div>
+      <!-- Согласие с офертой — по нажатию кнопки (без галочки); ссылки нужны для модерации Робокассы. -->
+      <p class="px-4 pb-4 text-center text-xs leading-snug text-(--vt-c-text-light-2)">
+        Нажимая кнопку, вы принимаете условия
+        <DocumentLink v-if="termsStore.data?.offer" kind="offer" class="underline"
+          >публичной оферты</DocumentLink
+        ><template v-else>публичной оферты</template>, соглашаетесь с
+        <RouterLink to="/terms" class="underline">условиями оплаты, доставки и возврата</RouterLink>
+        и даёте согласие на
+        <DocumentLink v-if="termsStore.data?.privacy" kind="privacy" class="underline"
+          >обработку персональных данных</DocumentLink
+        ><template v-else>обработку персональных данных</template>.
+      </p>
     </div>
   </article>
 </template>

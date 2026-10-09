@@ -2,9 +2,10 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import Header from '@/components/global/Header.vue'
 import Gallery from '@/components/global/Gallery.vue'
+import SellerContacts from '@/components/global/SellerContacts.vue'
 import { getAbout, type AboutData } from '@/api/about'
 import { imageUrls } from '@/scripts/images'
-import { hasDialableDigits, paragraphs, telHref } from '@/scripts/about'
+import { hasSellerInfo, paragraphs } from '@/scripts/about'
 
 const SHOP_NAME = 'Сказка странствий'
 
@@ -26,10 +27,7 @@ const title = computed(() => data.value?.about.title || 'Обо мне')
 const gallery = computed(() => imageUrls(data.value?.about.images))
 const text = computed(() => paragraphs(data.value?.about.body ?? ''))
 const seller = computed(() => data.value?.seller ?? null)
-const hasSeller = computed(() => {
-  const s = seller.value
-  return !!s && !!(s.fullName || s.inn || s.phone || s.email || s.links.length)
-})
+const hasSeller = computed(() => hasSellerInfo(seller.value))
 
 watch(title, (value) => (document.title = `${value} — ${SHOP_NAME}`), { immediate: true })
 </script>
@@ -56,29 +54,7 @@ watch(title, (value) => (document.title = `${value} — ${SHOP_NAME}`), { immedi
         class="mt-4 flex flex-col gap-1 border-t border-t-(--vt-c-divider-light-1) pt-4 text-sm"
       >
         <h2 class="mb-1 text-lg font-bold">Продавец</h2>
-        <p v-if="seller.fullName">{{ seller.fullName }}</p>
-        <p v-if="seller.inn">Самозанятая, ИНН {{ seller.inn }}</p>
-        <p v-if="seller.phone">
-          <!-- Без цифр звонить некуда — показываем номер обычным текстом, без ссылки. -->
-          <a
-            v-if="hasDialableDigits(seller.phone)"
-            :href="telHref(seller.phone)"
-            class="underline"
-            >{{ seller.phone }}</a
-          >
-          <template v-else>{{ seller.phone }}</template>
-        </p>
-        <p v-if="seller.email">
-          <a :href="`mailto:${seller.email}`" class="underline">{{ seller.email }}</a>
-        </p>
-        <ul v-if="seller.links.length" class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-          <!-- Список статичный, а адреса у двух ссылок могут совпасть — ключ по индексу. -->
-          <li v-for="(link, i) in seller.links" :key="i">
-            <a :href="link.url" target="_blank" rel="noopener noreferrer" class="underline">
-              {{ link.label }}
-            </a>
-          </li>
-        </ul>
+        <SellerContacts :seller="seller" />
       </section>
     </div>
   </article>
