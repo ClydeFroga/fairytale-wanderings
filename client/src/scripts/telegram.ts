@@ -7,6 +7,8 @@ interface TelegramWebApp {
   colorScheme?: 'light' | 'dark'
   ready: () => void
   expand: () => void
+  // Открывает ссылку во внешнем браузере (есть не во всех старых клиентах).
+  openLink?: (url: string) => void
 }
 
 declare global {
