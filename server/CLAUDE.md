@@ -62,6 +62,10 @@ src/
       route.ts                  # GET /content/about (публичный) и PATCH /content/about (страница «Обо мне» + реквизиты)
       validator.ts  helpers.ts
       about.e2e.test.ts
+    terms/
+      route.ts                  # GET /content/terms, GET /content/terms/offer|privacy (файл), PATCH /content/terms
+      validator.ts  helpers.ts
+      terms.e2e.test.ts
   test/e2e/                     # инфраструктура E2E: preload, postgres, migrate, reset
     preload.ts  postgres.ts  migrate.ts  db.ts  images.ts
   global/
@@ -71,9 +75,9 @@ src/
       types/                    # DTO запросов к БД (фильтры, сортировка и т.п.)
         product.ts  index.ts
       methods/                  # ТОЛЬКО обращения к БД (репозиторий)
-        product.ts  order.ts  orderItem.ts  user.ts  category.ts  aboutPage.ts  sellerInfo.ts
+        product.ts  order.ts  orderItem.ts  user.ts  category.ts  aboutPage.ts  sellerInfo.ts  shopTerms.ts
       shema/                    # Drizzle-схема, по файлу на сущность (+ index)
-        productSchema.ts userSchema.ts orderSchema.ts categorySchema.ts aboutSchema.ts index.ts
+        productSchema.ts userSchema.ts orderSchema.ts categorySchema.ts aboutSchema.ts termsSchema.ts index.ts
       seed/                     # данные и функции сидинга
         data.ts  seedProducts.ts
       seed.ts                   # CLI: bun run db:seed
@@ -116,6 +120,7 @@ src/
 - Категории: `slug` — стабильный ключ для фильтра витрины (`GET /products?category=<slug>`), генерируется из названия транслитом при создании и **не меняется** при переименовании. Названия уникальны без учёта регистра (проверка в роуте). Удаление категории обнуляет `products.category_id`, товары остаются.
 - Картинки товара — массив относительных путей (`images/x.webp`) в `products.image`, файлы лежат в `UPLOAD_PATH/images` и раздаются сервером. Загрузка: повторяющееся поле формы `image` (Hono собирает одноимённые поля в массив), не больше `MAX_IMAGES` (5, `global/utils/upload.ts`). При `PATCH` набор задаётся полем `existingImages` (JSON-массив оставляемых путей) + новые файлы; выпавшие файлы удаляются с диска (`Upload.removeMany`). Первая картинка — обложка.
 - **«Обо мне» и реквизиты продавца** — однострочные таблицы `about_page` и `seller_info` (`id = 1`, check), строки появляются при первом сохранении из CRM. `PATCH /content/about` — полная замена формы (непришедшее текстовое поле → пустая строка), фото — как у товара (`existingImages` + новые `image`, лимит `MAX_IMAGES`). Ошибки проверки — `400 INVALID_ABOUT` с русским текстом. Реквизиты лежат отдельно, потому что их же будут читать оферта и подвал. API живёт на `/content/about`, а не на `/about`: `/about` — путь страницы витрины, и JSON там отдавался бы вместо `index.html` при обновлении страницы (и обходил SEO-middleware), поэтому API этот путь намеренно не занимает.
+- **«Покупателям» (оплата, доставка, возврат, документы)** — однострочная таблица `shop_terms` (`id = 1`, check): три текста и документы `offer` / `privacy` в jsonb (`{ path, name, updatedAt } | null`). Контакты страница берёт из `seller_info`. `PATCH /content/terms` — тексты целиком (непришедший → пустая строка); файл не пришёл — документ не меняется, `removeOffer`/`removePrivacy=true` — убрать, файл важнее флага. Файлы проверяет `global/utils/documents.ts` (pdf/doc/docx/odt/rtf, ≤ 10 МБ, сигнатура первых байтов — иначе под видом документа можно отдать HTML со своего домена) и пишет `Upload.saveDocument` в `UPLOAD_PATH/docs/` под именем без исходного названия. Отдача — по постоянным адресам `GET /content/terms/offer|privacy` (`inline` для PDF, иначе `attachment`, `Cache-Control: no-cache`), нет файла — `404 DOCUMENT_NOT_FOUND`. Ошибки формы — `400 INVALID_TERMS`, файла — `400 INVALID_DOCUMENT`. API на `/content/terms` по той же причине, что `/content/about`.
 - `users` нужны только боту (идентификация — сам Telegram). У веб-заказов `userId = null` (гостевой checkout).
 - **Параметры посылки у товара:** `weight` (граммы), `length/width/height` (см, в упакованном виде) — необязательные, `null` значит «нет своих», тогда клиент берёт коробку по умолчанию из `/cdek/config`. В форме товара пустое поле **очищает** колонку (`optionalNumber` в `routes/products/helpers.ts`), непришедшее — не трогает. Посылку на заказ собирает клиент (`client/src/scripts/parcel.ts`), потому что она уходит прямо в виджет.
 - **Отправитель СДЭК — код города** (`CDEK_FROM_CITY_CODE`), не название: калькулятор отвечает 400 на `from_location` со строковым адресом. `GET /cdek/service?action=cities` — разовая настроечная ручка для поиска этого кода, виджет её не вызывает.
