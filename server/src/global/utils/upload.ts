@@ -3,6 +3,7 @@ import sharp from "sharp";
 import path from "path";
 import crypto from "crypto";
 import { InvalidImageError } from "@global/errors";
+import { slugify } from "./slugify";
 
 /** Сколько картинок разрешено держать у товара и на странице «Обо мне». */
 export const MAX_IMAGES = 5;
@@ -37,7 +38,9 @@ export class Upload {
   static async upload(file: File) {
     // Генерируем имя файла с метками времени и случайным хешем
     const originalName = file.name;
-    const fileNameWithoutExt = path.parse(originalName).name;
+    // Исходное имя — только латиница, цифры и дефисы: пробелы и скобки из
+    // «Снимок экрана (1).png» ломали адрес картинки в CSS url(...) на витрине.
+    const fileNameWithoutExt = slugify(path.parse(originalName).name) || "image";
     const timestamp = Date.now();
     // Добавляем случайный хеш к имени файла для уникальности
     const randomHash = crypto.randomBytes(4).toString("hex");

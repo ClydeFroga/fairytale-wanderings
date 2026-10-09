@@ -177,6 +177,14 @@ describe("About E2E", () => {
     for (const image of about.images) expect(fs.existsSync(uploadedPath(image))).toBe(true);
   });
 
+  it("имя файла с кириллицей, пробелами и скобками сохраняется безопасным", async () => {
+    const res = await patchAbout(aboutForm(FILLED, [await pngFile("Снимок экрана (1).png")]));
+    const { about } = (await res.json()) as AboutResponse;
+
+    expect(about.images[0]).toMatch(/^images\/\d+-[0-9a-f]{8}-snimok-ekrana-1\.webp$/);
+    expect(fs.existsSync(uploadedPath(about.images[0]!))).toBe(true);
+  });
+
   it("existingImages оставляет выбранные, выпавшее фото удаляется с диска", async () => {
     const first = await patchAbout(aboutForm(FILLED, [await pngFile("a.png"), await pngFile("b.png")]));
     const [keep, drop] = ((await first.json()) as AboutResponse).about.images;
