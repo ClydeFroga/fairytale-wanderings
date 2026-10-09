@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { getMe, type MeProfile } from '@/api/users'
 
-export type CrmView = 'products' | 'categories' | 'orders' | 'about'
+export type CrmView = 'products' | 'categories' | 'orders' | 'about' | 'terms'
 
 defineProps<{ view: CrmView }>()
 const emit = defineEmits<{ select: [view: CrmView] }>()
@@ -37,6 +37,7 @@ const nav: { key: CrmView; label: string; icon: string }[] = [
   { key: 'categories', label: 'Категории', icon: '⌗' },
   { key: 'orders', label: 'Заказы', icon: '❏' },
   { key: 'about', label: 'Обо мне', icon: '❦' },
+  { key: 'terms', label: 'Покупателям', icon: '§' },
 ]
 </script>
 

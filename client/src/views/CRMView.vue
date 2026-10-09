@@ -9,6 +9,7 @@ import ProductsPanel from '@/components/crm/ProductsPanel.vue'
 import CategoriesPanel from '@/components/crm/CategoriesPanel.vue'
 import OrdersPanel from '@/components/crm/OrdersPanel.vue'
 import AboutPanel from '@/components/crm/AboutPanel.vue'
+import TermsPanel from '@/components/crm/TermsPanel.vue'
 import ProductFormDrawer from '@/components/crm/ProductFormDrawer.vue'
 import ConfirmModal from '@/components/crm/ConfirmModal.vue'
 import '@/components/crm/crm-ui.css'
@@ -25,23 +26,30 @@ onMounted(() => {
 
 const view = ref<CrmView>('products')
 
-// --- уход из «Обо мне» с несохранёнными изменениями ---
-const aboutDirty = ref(false)
+// --- уход из раздела с несохранёнными изменениями («Обо мне», «Покупателям») ---
+// Открыт всегда один раздел, поэтому флага на все разделы хватает одного.
+const panelDirty = ref(false)
 const pendingView = ref<CrmView | null>(null)
 
+const LEAVE_MESSAGES: Partial<Record<CrmView, string>> = {
+  about: 'Изменения на странице «Обо мне» не сохранены и пропадут.',
+  terms: 'Изменения в разделе «Покупателям» не сохранены и пропадут.',
+}
+const leaveMessage = computed(() => LEAVE_MESSAGES[view.value] ?? '')
+
 function selectView(next: CrmView) {
-  if (view.value === 'about' && next !== 'about' && aboutDirty.value) {
+  if (next !== view.value && panelDirty.value) {
     pendingView.value = next
     return
   }
   view.value = next
 }
 
-function confirmLeaveAbout() {
+function confirmLeave() {
   const next = pendingView.value
   pendingView.value = null
   if (!next) return
-  aboutDirty.value = false
+  panelDirty.value = false
   view.value = next
 }
 
@@ -116,7 +124,8 @@ async function confirmCancelOrder() {
       />
       <CategoriesPanel v-else-if="view === 'categories'" @delete="pendingDeleteCategory = $event" />
       <OrdersPanel v-else-if="view === 'orders'" @cancel="pendingCancelOrder = $event" />
-      <AboutPanel v-else-if="view === 'about'" v-model:dirty="aboutDirty" />
+      <AboutPanel v-else-if="view === 'about'" v-model:dirty="panelDirty" />
+      <TermsPanel v-else-if="view === 'terms'" v-model:dirty="panelDirty" />
     </main>
 
     <ProductFormDrawer
@@ -154,9 +163,9 @@ async function confirmCancelOrder() {
       :open="pendingView !== null"
       icon="✎"
       title="Уйти без сохранения?"
-      message="Изменения на странице «Обо мне» не сохранены и пропадут."
+      :message="leaveMessage"
       confirm-label="Уйти"
-      @confirm="confirmLeaveAbout"
+      @confirm="confirmLeave"
       @cancel="pendingView = null"
     />
   </div>
