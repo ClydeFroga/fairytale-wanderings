@@ -57,7 +57,15 @@ export const updateAboutFormSchema = z.object({
     .trim()
     .default("")
     .refine((value) => value === "" || /^\d{12}$/.test(value), "ИНН — 12 цифр"),
-  phone: trimmed(30, "Телефон — не длиннее 30 символов"),
+  // Только российский номер: CRM вводит его по маске, сервер принимает ровно её формат.
+  phone: z
+    .string()
+    .trim()
+    .default("")
+    .refine(
+      (value) => value === "" || /^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$/.test(value),
+      "Телефон в формате +7 (999) 123-45-67",
+    ),
   email: z
     .string()
     .trim()

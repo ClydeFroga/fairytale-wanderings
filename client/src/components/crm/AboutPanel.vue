@@ -10,6 +10,7 @@ import {
   slotPaths,
   type ImageSlot,
 } from '@/scripts/imageSlots'
+import { formatInn, formatPhone, INN_DIGITS } from '@/scripts/masks'
 
 // Есть ли несохранённые изменения — CRMView спрашивает подтверждение при уходе.
 const dirty = defineModel<boolean>('dirty', { default: false })
@@ -60,8 +61,10 @@ function fillFrom(data: AboutData) {
     title: data.about.title,
     body: data.about.body,
     fullName: data.seller.fullName,
-    inn: data.seller.inn,
-    phone: data.seller.phone,
+    // Сохранённое до появления масок приводим к ним — иначе следующее сохранение
+    // упрётся в проверку формата на сервере.
+    inn: formatInn(data.seller.inn),
+    phone: formatPhone(data.seller.phone),
     email: data.seller.email,
     links: data.seller.links.map((link) => ({ key: linkSeq++, ...link })),
   }
@@ -77,6 +80,20 @@ watch(isDirty, (value) => {
   dirty.value = value
   if (value) savedNote.value = false
 })
+
+// Маска применяется на каждый ввод. Значение пишем и в поле: если маска отбросила
+// символ (буква в ИНН), модель не меняется и Vue сам поле не перерисует.
+function onPhoneInput(e: Event) {
+  const input = e.target as HTMLInputElement
+  draft.value.phone = formatPhone(input.value)
+  input.value = draft.value.phone
+}
+
+function onInnInput(e: Event) {
+  const input = e.target as HTMLInputElement
+  draft.value.inn = formatInn(input.value)
+  input.value = draft.value.inn
+}
 
 // Ошибка сохранения относится к прежнему содержимому формы: как только его правят — убираем.
 watch(snapshot, () => {
@@ -213,23 +230,27 @@ async function save() {
             <label class="crm-label" for="seller-inn">ИНН</label>
             <input
               id="seller-inn"
-              v-model="draft.inn"
+              :value="draft.inn"
               type="text"
               inputmode="numeric"
-              maxlength="12"
+              autocomplete="off"
               class="crm-input"
               placeholder="12 цифр"
+              @input="onInnInput"
             />
+            <p class="hint">{{ draft.inn.length }} из {{ INN_DIGITS }}</p>
           </div>
           <div class="field">
             <label class="crm-label" for="seller-phone">Телефон</label>
             <input
               id="seller-phone"
-              v-model="draft.phone"
+              :value="draft.phone"
               type="tel"
-              maxlength="30"
+              inputmode="tel"
+              autocomplete="tel"
               class="crm-input"
-              placeholder="+7 900 000-00-00"
+              placeholder="+7 (999) 123-45-67"
+              @input="onPhoneInput"
             />
           </div>
           <div class="field">

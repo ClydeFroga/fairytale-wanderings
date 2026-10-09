@@ -129,6 +129,17 @@ describe("About E2E", () => {
     expect(res.status).toBe(200);
   });
 
+  it("телефон не в формате +7 (999) 123-45-67 → 400", async () => {
+    await expectInvalid({ phone: "89991234567" }, "Телефон");
+    await expectInvalid({ phone: "+7 999 123 45 67" }, "Телефон");
+    await expectInvalid({ phone: "+7 (999) 123-45-6" }, "Телефон");
+  });
+
+  it("пустой телефон допустим", async () => {
+    const res = await patchAbout(aboutForm({ ...FILLED, phone: "" }));
+    expect(res.status).toBe(200);
+  });
+
   it("кривая почта → 400", async () => {
     await expectInvalid({ email: "maria@" }, "почт");
   });
