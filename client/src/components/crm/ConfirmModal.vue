@@ -4,6 +4,7 @@ defineProps<{
   title: string
   message: string
   confirmLabel?: string
+  icon?: string
 }>()
 
 const emit = defineEmits<{ confirm: []; cancel: [] }>()
@@ -12,7 +13,7 @@ const emit = defineEmits<{ confirm: []; cancel: [] }>()
 <template>
   <div v-if="open" class="scrim" @click="emit('cancel')">
     <div class="modal" @click.stop>
-      <div class="icon">🗑</div>
+      <div class="icon">{{ icon || '🗑' }}</div>
       <h2 class="title">{{ title }}</h2>
       <p class="message">{{ message }}</p>
       <div class="actions">

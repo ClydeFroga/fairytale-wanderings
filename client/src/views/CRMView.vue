@@ -8,6 +8,7 @@ import CrmSidebar, { type CrmView } from '@/components/crm/CrmSidebar.vue'
 import ProductsPanel from '@/components/crm/ProductsPanel.vue'
 import CategoriesPanel from '@/components/crm/CategoriesPanel.vue'
 import OrdersPanel from '@/components/crm/OrdersPanel.vue'
+import AboutPanel from '@/components/crm/AboutPanel.vue'
 import ProductFormDrawer from '@/components/crm/ProductFormDrawer.vue'
 import ConfirmModal from '@/components/crm/ConfirmModal.vue'
 import '@/components/crm/crm-ui.css'
@@ -23,6 +24,26 @@ onMounted(() => {
 })
 
 const view = ref<CrmView>('products')
+
+// --- уход из «Обо мне» с несохранёнными изменениями ---
+const aboutDirty = ref(false)
+const pendingView = ref<CrmView | null>(null)
+
+function selectView(next: CrmView) {
+  if (view.value === 'about' && next !== 'about' && aboutDirty.value) {
+    pendingView.value = next
+    return
+  }
+  view.value = next
+}
+
+function confirmLeaveAbout() {
+  const next = pendingView.value
+  pendingView.value = null
+  if (!next) return
+  aboutDirty.value = false
+  view.value = next
+}
 
 // --- форма товара ---
 const formOpen = ref(false)
@@ -84,7 +105,7 @@ async function confirmCancelOrder() {
 
 <template>
   <div class="crm">
-    <CrmSidebar :view="view" @select="view = $event" />
+    <CrmSidebar :view="view" @select="selectView" />
 
     <main class="crm-main">
       <ProductsPanel
@@ -95,6 +116,7 @@ async function confirmCancelOrder() {
       />
       <CategoriesPanel v-else-if="view === 'categories'" @delete="pendingDeleteCategory = $event" />
       <OrdersPanel v-else-if="view === 'orders'" @cancel="pendingCancelOrder = $event" />
+      <AboutPanel v-else-if="view === 'about'" v-model:dirty="aboutDirty" />
     </main>
 
     <ProductFormDrawer
@@ -126,6 +148,16 @@ async function confirmCancelOrder() {
       :message="cancelOrderMessage"
       @confirm="confirmCancelOrder"
       @cancel="pendingCancelOrder = null"
+    />
+
+    <ConfirmModal
+      :open="pendingView !== null"
+      icon="✎"
+      title="Уйти без сохранения?"
+      message="Изменения на странице «Обо мне» не сохранены и пропадут."
+      confirm-label="Уйти"
+      @confirm="confirmLeaveAbout"
+      @cancel="pendingView = null"
     />
   </div>
 </template>
