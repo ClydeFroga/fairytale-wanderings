@@ -71,6 +71,13 @@
       "when": 1790592689021,
       "tag": "0009_order_payment",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791525155011,
+      "tag": "0010_about_page",
+      "breakpoints": true
     }
   ]
 }

@@ -5,7 +5,7 @@ import { seedProducts } from "@global/database/seed/seedProducts";
 
 export async function resetDatabase(): Promise<IProduct[]> {
   await db.execute(
-    sql`TRUNCATE TABLE order_items, orders, products, categories, users RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE order_items, orders, products, categories, users, about_page, seller_info RESTART IDENTITY CASCADE`,
   );
   return seedProducts();
 }
