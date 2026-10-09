@@ -8,24 +8,18 @@ services:
         # домене, поэтому в проде это домен магазина (тот же, что в WEBAPP_URL).
         VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
     restart: unless-stopped
-    # Один процесс отдаёт и API, и сайт (см. middleware/staticFiles.ts) — порт один.
-    # Внутри контейнера он всегда 3000, снаружи — APP_PORT (3000 может быть занят
-    # локальным dev-сервером).
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - '${APP_PORT:-3000}:3000'
     env_file:
       - .env.${NODE_ENV:-development}
     environment:
       - NODE_ENV=${NODE_ENV:-development}
-      # Перебивают значения из env-файла, рассчитанные на запуск с хоста:
-      # порт фиксируем под маппинг выше, картинки в контейнере живут в volume.
       - PORT=3000
       - UPLOAD_PATH=/app/uploads
     volumes:
       - uploads:/app/uploads
     depends_on:
       postgres:
-        # Миграции идут при старте — без готовой базы контейнер просто упадёт.
         condition: service_healthy
     networks:
       - app-network
@@ -34,13 +28,13 @@ services:
     image: postgres:18.4-alpine
     restart: unless-stopped
     ports:
-      - "${POSTGRES_PORT:-15432}:5432"
+      - '${POSTGRES_PORT:-15432}:5432'
     volumes:
       - pgdata:/var/lib/postgresql
     env_file:
       - .env.${NODE_ENV:-development}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
       interval: 10s
       timeout: 5s
       retries: 5

@@ -34,3 +34,11 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Isolated git worktrees (see using-git-worktrees)
 .worktrees/
+
+docs
+PLAN.md
+.cursor
+.claude
+.superpowers
+.vscode
+compose.test.yml
