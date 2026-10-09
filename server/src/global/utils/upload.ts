@@ -4,6 +4,7 @@ import path from "path";
 import crypto from "crypto";
 import { InvalidImageError } from "@global/errors";
 import { slugify } from "./slugify";
+import type { DocumentExtension } from "./documents";
 
 /** Сколько картинок разрешено держать у товара и на странице «Обо мне». */
 export const MAX_IMAGES = 5;
@@ -34,6 +35,7 @@ export class Upload {
   static readonly rootDir = path.resolve(process.env.UPLOAD_PATH || "");
 
   private static uploadDir = path.join(Upload.rootDir, "images");
+  private static docsDir = path.join(Upload.rootDir, "docs");
 
   static async upload(file: File) {
     // Генерируем имя файла с метками времени и случайным хешем
@@ -82,6 +84,23 @@ export class Upload {
     }
 
     return paths;
+  }
+
+  /**
+   * Сохраняет уже проверенный документ (оферта, политика) как есть, без конвертации.
+   * Исходное имя в путь не попадает — его хранит БД, а на диске только цифры и hex.
+   */
+  static async saveDocument(file: File, ext: DocumentExtension): Promise<string> {
+    const fileName = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}.${ext}`;
+    await this.createDir(this.docsDir);
+    await Bun.write(path.join(this.docsDir, fileName), file);
+    return `docs/${fileName}`;
+  }
+
+  /** Абсолютный путь к загруженному файлу; null, если путь выходит за UPLOAD_PATH. */
+  static filePath(relative: string): string | null {
+    const fullPath = path.resolve(Upload.rootDir, relative);
+    return fullPath.startsWith(Upload.rootDir + path.sep) ? fullPath : null;
   }
 
   /** Удаляет ранее сохранённые файлы (пути — как их вернул `upload`). */
