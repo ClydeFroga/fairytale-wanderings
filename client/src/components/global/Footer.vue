@@ -1,86 +1,201 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { getAbout, type SellerInfo } from '@/api/about'
 import DocumentLink from '@/components/global/DocumentLink.vue'
+import { hasDialableDigits, telHref } from '@/scripts/about'
 import { useTermsStore } from '@/stores/terms'
 
 // Имя из двух слов: «Footer» — одно слово, а eslint (vue/multi-word-component-names) такое не пропускает.
 defineOptions({ name: 'SiteFooter' })
 
-// Робокасса проверяет, что условия, контакты и оферта видны на сайте — отсюда
-// они доступны с любой публичной страницы.
-const links = [
-  { to: '/about', label: 'Обо мне' },
-  { to: '/terms#payment', label: 'Оплата' },
-  { to: '/terms#delivery', label: 'Доставка' },
-  { to: '/terms#returns', label: 'Возврат' },
-  { to: '/terms#contacts', label: 'Контакты' },
-]
+const router = useRouter()
+const year = new Date().getFullYear()
+
+function goToSection(id: string) {
+  void router.push({ path: '/', hash: `#${id}` })
+}
+
+const seller = ref<SellerInfo | null>(null)
 
 // Ссылки на файлы показываем, только если владелица их загрузила.
 const termsStore = useTermsStore()
-onMounted(() => termsStore.ensureLoaded())
+
+onMounted(async () => {
+  void termsStore.ensureLoaded()
+  try {
+    seller.value = (await getAbout()).seller
+  } catch {
+    seller.value = null
+  }
+})
+
+const contacts = computed(() => {
+  const info = seller.value
+  if (!info) return []
+
+  const items: { label: string; href: string; external: boolean }[] = []
+  if (info.phone && hasDialableDigits(info.phone)) {
+    items.push({ label: info.phone, href: telHref(info.phone), external: false })
+  }
+  if (info.email) {
+    items.push({ label: info.email, href: `mailto:${info.email}`, external: false })
+  }
+  for (const link of info.links) {
+    if (link.label && link.url) {
+      items.push({ label: link.label, href: link.url, external: true })
+    }
+  }
+  return items
+})
 </script>
 
 <template>
-  <footer class="footer">
-    <nav aria-label="Информация о магазине">
-      <ul class="footer-links">
-        <li v-for="link in links" :key="link.to">
-          <RouterLink :to="link.to" class="footer-link">{{ link.label }}</RouterLink>
-        </li>
-        <li v-if="termsStore.data?.offer">
-          <DocumentLink kind="offer" class="footer-link">Публичная оферта</DocumentLink>
-        </li>
-        <li v-if="termsStore.data?.privacy">
-          <DocumentLink kind="privacy" class="footer-link"
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <div class="footer-title">Сказка странствий</div>
+        <p>Керамика ручной работы.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col">
+          <div class="footer-col-title">Магазин</div>
+          <a href="/#catalog" @click.prevent="goToSection('catalog')">Каталог</a>
+          <RouterLink to="/about">О мастере</RouterLink>
+          <RouterLink to="/terms#payment">Оплата</RouterLink>
+          <RouterLink to="/terms#delivery">Доставка</RouterLink>
+          <RouterLink to="/terms#returns">Возврат</RouterLink>
+          <RouterLink to="/terms#contacts">Контакты</RouterLink>
+          <DocumentLink v-if="termsStore.data?.offer" kind="offer">Публичная оферта</DocumentLink>
+          <DocumentLink v-if="termsStore.data?.privacy" kind="privacy"
             >Политика конфиденциальности</DocumentLink
           >
-        </li>
-      </ul>
-    </nav>
-    <p class="footer-copy">© Сказка Странствий</p>
+        </div>
+        <div v-if="contacts.length" class="footer-col">
+          <div class="footer-col-title">Связаться</div>
+          <a
+            v-for="item in contacts"
+            :key="item.href + item.label"
+            :href="item.href"
+            :target="item.external ? '_blank' : undefined"
+            :rel="item.external ? 'noopener noreferrer' : undefined"
+          >
+            {{ item.label }}
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="container footer-bottom">© {{ year }} Сказка странствий</div>
   </footer>
 </template>
 
 <style scoped>
-.footer {
+.site-footer {
   background: var(--ink);
   color: #e9e1d6;
-  padding: 40px 24px 32px;
 }
 
-.footer-links {
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.footer-inner {
+  padding-top: 56px;
+  padding-bottom: 40px;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px 28px;
-  list-style: none;
-  margin: 0 auto;
-  padding: 0;
-  max-width: 1200px;
+  justify-content: space-between;
+  gap: 40px;
 }
 
-.footer-link {
-  color: #d8cdbf;
-  text-decoration: none;
+.footer-brand {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.footer-title {
+  font-family: var(--serif);
+  font-size: 26px;
+  margin-bottom: 10px;
+}
+
+.footer-brand p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #bfb3a5;
+  max-width: 340px;
+}
+
+.footer-cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 56px;
+}
+
+.footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   font-size: 15px;
 }
 
-.footer-link:hover {
+.footer-col-title {
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.footer-col a {
+  color: #d8cdbf;
+  text-decoration: none;
+}
+
+.footer-col a:hover {
   color: #fff;
 }
 
-.footer-copy {
-  max-width: 1200px;
-  margin: 20px auto 0;
+.footer-bottom {
   padding-top: 20px;
+  padding-bottom: 32px;
   border-top: 1px solid #4a3e36;
   font-size: 13px;
   color: #a99c8d;
 }
 
 @media (max-width: 720px) {
-  .footer {
-    padding: 28px 16px;
+  .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .footer-inner {
+    padding-top: 40px;
+    padding-bottom: 28px;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .footer-title {
+    font-size: 24px;
+  }
+
+  .footer-brand {
+    flex: none;
+  }
+
+  .footer-cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+  }
+
+  .footer-bottom {
+    padding-top: 16px;
+    padding-bottom: 28px;
   }
 }
 </style>
