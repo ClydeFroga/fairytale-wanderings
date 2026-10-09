@@ -4,6 +4,30 @@ import path from "path";
 import crypto from "crypto";
 import { InvalidImageError } from "@global/errors";
 
+/** Сколько картинок разрешено держать у товара и на странице «Обо мне». */
+export const MAX_IMAGES = 5;
+
+/**
+ * Какие из уже сохранённых картинок остаются.
+ * `existingImages` — JSON-массив путей от клиента; берём только те, что реально
+ * есть сейчас (иначе клиент мог бы записать произвольный путь).
+ * Поле не пришло — значит про картинки речи нет, оставляем все текущие.
+ */
+export function resolveKeptImages(existingImages: string | undefined, current: string[]): string[] {
+  if (existingImages === undefined) return current;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(existingImages);
+  } catch {
+    return current;
+  }
+
+  if (!Array.isArray(parsed)) return current;
+
+  return parsed.filter((path): path is string => typeof path === "string" && current.includes(path));
+}
+
 export class Upload {
   /** Корень каталога загрузок: в БД пути относительные (`images/x.webp`). */
   static readonly rootDir = path.resolve(process.env.UPLOAD_PATH || "");

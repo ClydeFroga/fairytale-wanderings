@@ -1,14 +1,13 @@
 import { Hono } from 'hono'
 import { ProductMethods } from '@global/database/methods/product'
 import {
-  MAX_PRODUCT_IMAGES,
   createProductValidator,
   listProductsValidator,
   updateProductValidator,
 } from './validator'
-import { mapFormToProduct, resolveKeptImages } from './helpers'
+import { mapFormToProduct } from './helpers'
 import type { INewProduct } from '@global/database/shema'
-import { Upload } from '@global/utils/upload'
+import { MAX_IMAGES, Upload, resolveKeptImages } from '@global/utils/upload'
 import { AppError, ProductNotFoundError, TooManyImagesError } from '@global/errors'
 import { requireAdmin } from '../../middleware/requireAdmin'
 import { uniqueSlug } from '@global/utils/slugify'
@@ -40,8 +39,8 @@ app.get('/:id', async (c) => {
 app.post('/', requireAdmin, createProductValidator, async (c) => {
   const form = c.req.valid('form')
 
-  if (form.image.length > MAX_PRODUCT_IMAGES) {
-    throw new TooManyImagesError(MAX_PRODUCT_IMAGES, form.image.length)
+  if (form.image.length > MAX_IMAGES) {
+    throw new TooManyImagesError(MAX_IMAGES, form.image.length)
   }
 
   const slug = uniqueSlug(form.name, await ProductMethods.listSlugs(), 'product')
@@ -71,8 +70,8 @@ app.patch('/:id', requireAdmin, updateProductValidator, async (c) => {
   // Итоговый набор: оставленные клиентом старые картинки + только что загруженные.
   const kept = resolveKeptImages(form.existingImages, current.image)
   const total = kept.length + form.image.length
-  if (total > MAX_PRODUCT_IMAGES) {
-    throw new TooManyImagesError(MAX_PRODUCT_IMAGES, total)
+  if (total > MAX_IMAGES) {
+    throw new TooManyImagesError(MAX_IMAGES, total)
   }
 
   // Картинки трогаем, только если клиент про них что-то сказал: прислал файлы

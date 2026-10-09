@@ -1,6 +1,6 @@
 import { AppError } from "./AppError";
 
-/** У товара больше картинок, чем разрешено (лимит — в routes/products/helpers.ts). */
+/** Картинок больше, чем разрешено (лимит — MAX_IMAGES в global/utils/upload.ts). */
 export class TooManyImagesError extends AppError {
   constructor(public readonly max: number, public readonly received: number) {
     super(

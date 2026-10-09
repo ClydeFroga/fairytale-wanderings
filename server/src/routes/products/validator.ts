@@ -5,9 +5,7 @@ import {
   optionalQueryString,
   optionalQueryUuid,
 } from "@validators/query";
-
-/** Сколько картинок разрешено держать у товара. */
-export const MAX_PRODUCT_IMAGES = 5;
+import { imagesField } from "@validators/form";
 
 /** Query GET /products: неизвестные ключи отбрасываются, невалидные значения — undefined. */
 export const productListQuerySchema = z
@@ -22,18 +20,6 @@ export const productListQuerySchema = z
 export type ProductListQuery = z.infer<typeof productListQuerySchema>;
 
 export const listProductsValidator = zValidator("query", productListQuerySchema);
-
-// Картинки приходят повторяющимся полем `image`: один файл — File, несколько —
-// массив (Hono сам собирает одноимённые поля формы). Пустые файлы (браузер шлёт
-// их для незаполненного input) отбрасываем. Количество проверяет роут — так
-// клиент получает нашу ошибку `TOO_MANY_IMAGES`, а не отчёт zod.
-const imagesField = z
-  .union([z.instanceof(File), z.array(z.instanceof(File))])
-  .optional()
-  .transform((value) => {
-    if (!value) return [];
-    return (Array.isArray(value) ? value : [value]).filter((file) => file.size > 0);
-  });
 
 export const updateProductFormSchema = z.object({
   name: z.string().optional(),
