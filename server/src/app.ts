@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import routes from "./routes/index";
 import { errorHandler } from "./middleware/errorHandler";
+import { securityHeaders } from "./middleware/securityHeaders";
 
 // Домены фронта: с credentials: true подстановка "*" запрещена, поэтому список
 // задаётся явно (в проде — CORS_ORIGINS через запятую).
@@ -29,10 +30,11 @@ export function createApp() {
   return app;
 }
 
-/** Продакшен/dev-сборка с CORS. */
+/** Продакшен/dev-сборка с CORS и защитными заголовками. */
 export function createServerApp() {
   const app = new Hono();
   app.onError(errorHandler);
+  app.use("*", securityHeaders);
   app.use("*", corsMiddleware);
   app.route("/", routes);
   return app;

@@ -14,3 +14,7 @@
   font-family: 'Noto Serif';
   src: url('@/assets/fonts/NotoSerif-Regular.ttf') format('truetype');
 }
+@font-face {
+  font-family: 'Skazka Stranstvij';
+  src: url('@/assets/fonts/SkazkaStranstvij-Regular.ttf') format('truetype');
+}
