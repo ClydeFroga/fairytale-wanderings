@@ -65,9 +65,11 @@ export function textDescription(text: string, limit = DESCRIPTION_LIMIT): string
   if (flat.length <= limit) return flat
 
   const cut = flat.slice(0, limit)
-  const lastSpace = cut.lastIndexOf(' ')
+  // Ищем пробел в том числе на позиции limit: если рез пришёлся ровно на границу слова,
+  // последнее целое слово остаётся.
+  const lastSpace = flat.slice(0, limit + 1).lastIndexOf(' ')
   // Слово длиннее половины лимита (или пробелов нет) — режем как есть.
-  return (lastSpace > limit / 2 ? cut.slice(0, lastSpace) : cut).trimEnd() + '…'
+  return (lastSpace > limit / 2 ? flat.slice(0, lastSpace) : cut).trimEnd() + '…'
 }
 
 /** Абзацы простого текста: разделитель — пустая строка (как на витрине). */

@@ -4,7 +4,7 @@ import Header from '@/components/global/Header.vue'
 import Gallery from '@/components/global/Gallery.vue'
 import { getAbout, type AboutData } from '@/api/about'
 import { imageUrls } from '@/scripts/images'
-import { paragraphs, telHref } from '@/scripts/about'
+import { hasDialableDigits, paragraphs, telHref } from '@/scripts/about'
 
 const SHOP_NAME = 'Сказка странствий'
 
@@ -59,13 +59,21 @@ watch(title, (value) => (document.title = `${value} — ${SHOP_NAME}`), { immedi
         <p v-if="seller.fullName">{{ seller.fullName }}</p>
         <p v-if="seller.inn">Самозанятая, ИНН {{ seller.inn }}</p>
         <p v-if="seller.phone">
-          <a :href="telHref(seller.phone)" class="underline">{{ seller.phone }}</a>
+          <!-- Без цифр звонить некуда — показываем номер обычным текстом, без ссылки. -->
+          <a
+            v-if="hasDialableDigits(seller.phone)"
+            :href="telHref(seller.phone)"
+            class="underline"
+            >{{ seller.phone }}</a
+          >
+          <template v-else>{{ seller.phone }}</template>
         </p>
         <p v-if="seller.email">
           <a :href="`mailto:${seller.email}`" class="underline">{{ seller.email }}</a>
         </p>
         <ul v-if="seller.links.length" class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-          <li v-for="link in seller.links" :key="link.url">
+          <!-- Список статичный, а адреса у двух ссылок могут совпасть — ключ по индексу. -->
+          <li v-for="(link, i) in seller.links" :key="i">
             <a :href="link.url" target="_blank" rel="noopener noreferrer" class="underline">
               {{ link.label }}
             </a>

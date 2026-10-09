@@ -103,6 +103,16 @@ describe('textDescription', () => {
     expect(result.endsWith('слово…')).toBe(true)
   })
 
+  it('если пробел стоит сразу за лимитом, последнее слово не теряется', () => {
+    // 155 букв + пробел + «слов» = ровно 160 символов, 161-й символ — пробел.
+    const text = 'а'.repeat(155) + ' слов' + ' дальше текст'
+    expect(text[159]).toBe('в')
+    expect(text[160]).toBe(' ')
+    const result = textDescription(text)
+    expect(result).toBe('а'.repeat(155) + ' слов…')
+    expect(result.length).toBeLessThanOrEqual(161)
+  })
+
   it('текст без пробелов режется ровно по лимиту', () => {
     expect(textDescription('я'.repeat(300))).toBe('я'.repeat(160) + '…')
   })

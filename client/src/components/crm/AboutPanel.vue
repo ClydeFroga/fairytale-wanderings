@@ -78,6 +78,11 @@ watch(isDirty, (value) => {
   if (value) savedNote.value = false
 })
 
+// Ошибка сохранения относится к прежнему содержимому формы: как только его правят — убираем.
+watch(snapshot, () => {
+  saveError.value = ''
+})
+
 onMounted(async () => {
   // Данные грузим при первом открытии раздела; дальше берём из стора.
   if (!aboutStore.data) await aboutStore.loadAbout()
@@ -148,121 +153,125 @@ async function save() {
     <button type="button" class="crm-btn crm-btn-sm" @click="retry">Повторить</button>
   </div>
 
-  <form v-else class="sections" @submit.prevent="save">
-    <section class="crm-panel section">
-      <h2 class="section-title">Рассказ</h2>
+  <form v-else class="sections" novalidate @submit.prevent="save">
+    <!-- novalidate: формат почты и ссылок проверяет сервер, а не нативные подсказки браузера. -->
+    <!-- Во время сохранения поля заблокированы: набранное за это время затёрлось бы ответом сервера. -->
+    <fieldset class="fields" :disabled="saving">
+      <section class="crm-panel section">
+        <h2 class="section-title">Рассказ</h2>
 
-      <div class="field">
-        <label class="crm-label" for="about-title">Заголовок</label>
-        <input
-          id="about-title"
-          v-model="draft.title"
-          type="text"
-          maxlength="120"
-          class="crm-input"
-          placeholder="Например, Как я начала вязать"
-        />
-      </div>
-
-      <div class="field">
-        <label class="crm-label" for="about-body">Текст</label>
-        <textarea
-          id="about-body"
-          v-model="draft.body"
-          rows="12"
-          maxlength="10000"
-          class="crm-input"
-          placeholder="Расскажите о себе и своих игрушках"
-        ></textarea>
-        <p class="hint">Пустая строка — новый абзац.</p>
-      </div>
-
-      <ImageSlotsField
-        :key="galleryKey"
-        v-model="slots"
-        label="Фото"
-        :max="MAX_ABOUT_IMAGES"
-        hint="Первое фото — обложка: оно же в превью ссылки в мессенджерах."
-      />
-    </section>
-
-    <section class="crm-panel section">
-      <h2 class="section-title">Продавец</h2>
-      <p class="hint">Эти данные нужны для проверки магазина в Робокассе.</p>
-
-      <div class="grid-2">
         <div class="field">
-          <label class="crm-label" for="seller-name">ФИО</label>
+          <label class="crm-label" for="about-title">Заголовок</label>
           <input
-            id="seller-name"
-            v-model="draft.fullName"
+            id="about-title"
+            v-model="draft.title"
             type="text"
             maxlength="120"
             class="crm-input"
+            placeholder="Например, Как я начала вязать"
           />
         </div>
-        <div class="field">
-          <label class="crm-label" for="seller-inn">ИНН</label>
-          <input
-            id="seller-inn"
-            v-model="draft.inn"
-            type="text"
-            inputmode="numeric"
-            maxlength="12"
-            class="crm-input"
-            placeholder="12 цифр"
-          />
-        </div>
-        <div class="field">
-          <label class="crm-label" for="seller-phone">Телефон</label>
-          <input
-            id="seller-phone"
-            v-model="draft.phone"
-            type="tel"
-            maxlength="30"
-            class="crm-input"
-            placeholder="+7 900 000-00-00"
-          />
-        </div>
-        <div class="field">
-          <label class="crm-label" for="seller-email">Почта</label>
-          <input id="seller-email" v-model="draft.email" type="email" class="crm-input" />
-        </div>
-      </div>
 
-      <div class="field">
-        <label class="crm-label">Ссылки</label>
-        <div v-for="(link, i) in draft.links" :key="link.key" class="link-row">
-          <input
-            v-model="link.label"
-            type="text"
-            maxlength="40"
+        <div class="field">
+          <label class="crm-label" for="about-body">Текст</label>
+          <textarea
+            id="about-body"
+            v-model="draft.body"
+            rows="12"
+            maxlength="10000"
             class="crm-input"
-            placeholder="Telegram"
-            aria-label="Название ссылки"
-          />
-          <input
-            v-model="link.url"
-            type="url"
-            class="crm-input"
-            placeholder="https://t.me/…"
-            aria-label="Адрес ссылки"
-          />
-          <button
-            type="button"
-            class="crm-icon-btn danger"
-            aria-label="Убрать ссылку"
-            title="Убрать"
-            @click="removeLink(i)"
-          >
-            ✕
+            placeholder="Расскажите о себе и своих игрушках"
+          ></textarea>
+          <p class="hint">Пустая строка — новый абзац.</p>
+        </div>
+
+        <ImageSlotsField
+          :key="galleryKey"
+          v-model="slots"
+          label="Фото"
+          :max="MAX_ABOUT_IMAGES"
+          hint="Первое фото — обложка: оно же в превью ссылки в мессенджерах."
+        />
+      </section>
+
+      <section class="crm-panel section">
+        <h2 class="section-title">Продавец</h2>
+        <p class="hint">Эти данные нужны для проверки магазина в Робокассе.</p>
+
+        <div class="grid-2">
+          <div class="field">
+            <label class="crm-label" for="seller-name">ФИО</label>
+            <input
+              id="seller-name"
+              v-model="draft.fullName"
+              type="text"
+              maxlength="120"
+              class="crm-input"
+            />
+          </div>
+          <div class="field">
+            <label class="crm-label" for="seller-inn">ИНН</label>
+            <input
+              id="seller-inn"
+              v-model="draft.inn"
+              type="text"
+              inputmode="numeric"
+              maxlength="12"
+              class="crm-input"
+              placeholder="12 цифр"
+            />
+          </div>
+          <div class="field">
+            <label class="crm-label" for="seller-phone">Телефон</label>
+            <input
+              id="seller-phone"
+              v-model="draft.phone"
+              type="tel"
+              maxlength="30"
+              class="crm-input"
+              placeholder="+7 900 000-00-00"
+            />
+          </div>
+          <div class="field">
+            <label class="crm-label" for="seller-email">Почта</label>
+            <input id="seller-email" v-model="draft.email" type="email" class="crm-input" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="crm-label">Ссылки</label>
+          <div v-for="(link, i) in draft.links" :key="link.key" class="link-row">
+            <input
+              v-model="link.label"
+              type="text"
+              maxlength="40"
+              class="crm-input"
+              placeholder="Telegram"
+              aria-label="Название ссылки"
+            />
+            <input
+              v-model="link.url"
+              type="url"
+              class="crm-input"
+              placeholder="https://t.me/…"
+              aria-label="Адрес ссылки"
+            />
+            <button
+              type="button"
+              class="crm-icon-btn danger"
+              aria-label="Убрать ссылку"
+              title="Убрать"
+              @click="removeLink(i)"
+            >
+              ✕
+            </button>
+          </div>
+          <button v-if="canAddLink" type="button" class="add-link" @click="addLink">
+            + добавить ссылку
           </button>
         </div>
-        <button v-if="canAddLink" type="button" class="add-link" @click="addLink">
-          + добавить ссылку
-        </button>
-      </div>
-    </section>
+      </section>
+    </fieldset>
 
     <div class="foot">
       <p v-if="saveError" class="save-error">{{ saveError }}</p>
@@ -297,6 +306,16 @@ async function save() {
   flex-direction: column;
   gap: 20px;
   max-width: 760px;
+}
+/* Fieldset нужен только ради :disabled, поэтому сбрасываем его стили и держим раскладку формы. */
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
 }
 .section {
   padding: 22px 24px;
