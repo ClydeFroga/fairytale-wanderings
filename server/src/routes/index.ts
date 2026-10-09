@@ -18,7 +18,7 @@ app.route("/categories", categories);
 app.route("/auth", auth);
 app.route("/cdek", cdek);
 app.route("/payments", payments);
-app.route("/about", about);
+app.route("/content/about", about);
 app.route("/", seo);
 
 export default app;
