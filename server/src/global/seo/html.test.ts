@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'bun:test'
 import { join } from 'node:path'
-import { aboutCrawlerBlock, escapeHtml, injectSeoHtml, textDescription, textParagraphs } from './html'
+import {
+  aboutCrawlerBlock,
+  escapeHtml,
+  injectSeoHtml,
+  termsCrawlerBlock,
+  textDescription,
+  textParagraphs,
+} from './html'
 import type { SeoDocument } from './html'
 
 process.env.PUBLIC_SITE_URL = 'http://localhost:3000'
@@ -137,6 +144,24 @@ describe('aboutCrawlerBlock', () => {
     const html = aboutCrawlerBlock({ title: '<b>Я</b>', paragraphs: ['<script>alert(1)</script>'] })
     expect(html).toContain('<h1>&lt;b&gt;Я&lt;/b&gt;</h1>')
     expect(html).toContain('<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>')
+    expect(html).not.toContain('<script>')
+  })
+})
+
+describe('termsCrawlerBlock', () => {
+  it('пропускает пустые разделы и разделы из одних пробелов, экранирует текст', () => {
+    const html = termsCrawlerBlock({
+      title: 'Покупателям',
+      sections: [
+        { heading: 'Оплата', text: 'Картой.\n\n<script>alert(1)</script>' },
+        { heading: 'Доставка', text: '' },
+        { heading: 'Возврат', text: '  \n\n  \n' },
+      ],
+    })
+    expect(html).toContain('<h1>Покупателям</h1>')
+    expect(html).toContain('<h2>Оплата</h2><p>Картой.</p><p>&lt;script&gt;alert(1)&lt;/script&gt;</p>')
+    expect(html).not.toContain('Доставка')
+    expect(html).not.toContain('Возврат')
     expect(html).not.toContain('<script>')
   })
 })

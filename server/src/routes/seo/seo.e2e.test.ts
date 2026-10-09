@@ -7,6 +7,7 @@ import { resetDatabase } from '../../test/e2e/db'
 import type { IProduct } from '@global/database/shema'
 import { ProductMethods } from '@global/database/methods/product'
 import { AboutPageMethods } from '@global/database/methods/aboutPage'
+import { ShopTermsMethods } from '@global/database/methods/shopTerms'
 import { createServeClientIndex } from '../../middleware/seoHtml'
 import { serveClient } from '../../middleware/staticFiles'
 import { adminHeaders } from '../../test/e2e/auth'
@@ -43,6 +44,15 @@ async function saveAbout(fields: Record<string, string>, files: File[] = []) {
   for (const file of files) form.append('image', file)
   const res = await createApp().fetch(
     new Request('http://localhost/content/about', { method: 'PATCH', body: form, headers: adminHeaders() }),
+  )
+  expect(res.status).toBe(200)
+}
+
+async function saveTerms(fields: Record<string, string>) {
+  const form = new FormData()
+  for (const [key, value] of Object.entries(fields)) form.set(key, value)
+  const res = await createApp().fetch(
+    new Request('http://localhost/content/terms', { method: 'PATCH', body: form, headers: adminHeaders() }),
   )
   expect(res.status).toBe(200)
 }
@@ -247,6 +257,55 @@ describe('SEO HTML / sitemap', () => {
     })
     try {
       const res = await htmlGet('/about')
+      const html = await res.text()
+      expect(res.status).toBe(200)
+      expect(res.headers.get('content-type')).toContain('text/html')
+      expect(html).toContain('<!--seo-head-->')
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('GET /sitemap.xml — есть /terms', async () => {
+    const res = await createApp().fetch(new Request('http://localhost/sitemap.xml'))
+    expect(await res.text()).toContain('<loc>http://localhost:3000/terms</loc>')
+  })
+
+  it('HTML /terms с данными — title, description, разделы в скрытом блоке, текст экранирован', async () => {
+    await saveTerms({ payment: 'Картой или по СБП.', returns: '<script>alert(1)</script>' })
+
+    const res = await htmlGet('/terms')
+    const html = await res.text()
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('x-robots-tag')).toBeNull()
+    expect(html).toContain('<title>Оплата, доставка и возврат — Сказка странствий</title>')
+    expect(html).toContain(
+      '<meta name="description" content="Как оплатить заказ, условия доставки СДЭК и возврата, контакты продавца.">',
+    )
+    expect(html).toContain('<link rel="canonical" href="http://localhost:3000/terms">')
+    expect(html).toContain('<h1>Покупателям</h1>')
+    expect(html).toContain('<h2>Оплата</h2><p>Картой или по СБП.</p>')
+    expect(html).not.toContain('<h2>Доставка</h2>')
+    expect(html).toContain('<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>')
+    expect(html).not.toContain('<script>alert(1)</script>')
+  })
+
+  it('HTML /terms без данных — 200 и общая обложка', async () => {
+    const res = await htmlGet('/terms')
+    const html = await res.text()
+
+    expect(res.status).toBe(200)
+    expect(html).toContain('<title>Оплата, доставка и возврат — Сказка странствий</title>')
+    expect(html).toContain('og:image" content="http://localhost:3000/og.jpg"')
+  })
+
+  it('ошибка БД на /terms — 200 HTML, сырой index', async () => {
+    const spy = spyOn(ShopTermsMethods, 'get').mockImplementation(() => {
+      throw new Error('db down')
+    })
+    try {
+      const res = await htmlGet('/terms')
       const html = await res.text()
       expect(res.status).toBe(200)
       expect(res.headers.get('content-type')).toContain('text/html')

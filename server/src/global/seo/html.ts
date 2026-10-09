@@ -85,6 +85,23 @@ export function aboutCrawlerBlock(input: { title: string; paragraphs: string[] }
   return `<div class="seo-crawler" style="display:none"><h1>${escapeHtml(input.title)}</h1>${body}</div>`
 }
 
+/** Скрытый блок «Покупателям»: заголовок и непустые разделы с абзацами. */
+export function termsCrawlerBlock(input: {
+  title: string
+  sections: { heading: string; text: string }[]
+}): string {
+  const body = input.sections
+    .map((section) => ({ heading: section.heading, paragraphs: textParagraphs(section.text) }))
+    .filter((section) => section.paragraphs.length > 0)
+    .map(
+      (section) =>
+        `<h2>${escapeHtml(section.heading)}</h2>` +
+        section.paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join(''),
+    )
+    .join('')
+  return `<div class="seo-crawler" style="display:none"><h1>${escapeHtml(input.title)}</h1>${body}</div>`
+}
+
 function extraHead(doc: SeoDocument): string {
   const parts: string[] = []
   const canonical = absoluteUrl(doc.canonicalPath)

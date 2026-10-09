@@ -1,5 +1,6 @@
 import type { MiddlewareHandler } from 'hono'
 import { AboutPageMethods } from '@global/database/methods/aboutPage'
+import { ShopTermsMethods } from '@global/database/methods/shopTerms'
 import { ProductMethods } from '@global/database/methods/product'
 import {
   DEFAULT_OG_PATH,
@@ -13,6 +14,7 @@ import {
   escapeHtml,
   injectSeoHtml,
   productJsonLd,
+  termsCrawlerBlock,
   textDescription,
   textParagraphs,
   type SeoDocument,
@@ -118,6 +120,34 @@ function aboutDocument(about: { title: string; body: string; images: string[] })
   }
 }
 
+const TERMS_TITLE = 'Оплата, доставка и возврат'
+const TERMS_DESCRIPTION = 'Как оплатить заказ, условия доставки СДЭК и возврата, контакты продавца.'
+
+// Тексты условий пишет владелица, а заголовок и описание постоянные: страница
+// одна и та же, меняются только формулировки внутри.
+function termsDocument(terms: {
+  paymentText: string
+  deliveryText: string
+  returnsText: string
+}): SeoDocument {
+  return {
+    title: `${TERMS_TITLE} — ${SHOP_NAME}`,
+    description: TERMS_DESCRIPTION,
+    canonicalPath: '/terms',
+    noindex: false,
+    ogImagePath: absoluteUrl(DEFAULT_OG_PATH),
+    jsonLd: null,
+    crawlerHtml: termsCrawlerBlock({
+      title: 'Покупателям',
+      sections: [
+        { heading: 'Оплата', text: terms.paymentText },
+        { heading: 'Доставка', text: terms.deliveryText },
+        { heading: 'Возврат и обмен', text: terms.returnsText },
+      ],
+    }),
+  }
+}
+
 async function defaultRead(): Promise<string | null> {
   const file = Bun.file(INDEX_HTML)
   if (!(await file.exists())) return null
@@ -169,6 +199,14 @@ export function createServeClientIndex(
         doc = aboutDocument(about ?? { title: '', body: '', images: [] })
       } catch (error) {
         console.error('SEO: не удалось прочитать страницу «Обо мне»', error)
+        return new Response(index, { headers: htmlHeaders(false) })
+      }
+    } else if (page.type === 'terms') {
+      try {
+        const terms = await ShopTermsMethods.get()
+        doc = termsDocument(terms ?? { paymentText: '', deliveryText: '', returnsText: '' })
+      } catch (error) {
+        console.error('SEO: не удалось прочитать страницу «Покупателям»', error)
         return new Response(index, { headers: htmlHeaders(false) })
       }
     } else {

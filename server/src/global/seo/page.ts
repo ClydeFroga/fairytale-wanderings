@@ -3,6 +3,7 @@ export type SeoPage =
   | { type: 'product'; param: string }
   | { type: 'utility' }
   | { type: 'about' }
+  | { type: 'terms' }
   | { type: 'missing' }
 
 export function matchSeoPath(pathname: string, search: string): SeoPage {
@@ -18,6 +19,9 @@ export function matchSeoPath(pathname: string, search: string): SeoPage {
   }
   if (path === '/about') {
     return { type: 'about' }
+  }
+  if (path === '/terms') {
+    return { type: 'terms' }
   }
   const match = path.match(/^\/product\/([^/]+)$/)
   if (match?.[1]) {

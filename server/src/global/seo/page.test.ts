@@ -29,6 +29,11 @@ describe('matchSeoPath', () => {
     expect(matchSeoPath('/about/', '')).toEqual({ type: 'about' })
   })
 
+  it('/terms и /terms/ — страница «Покупателям»', () => {
+    expect(matchSeoPath('/terms', '')).toEqual({ type: 'terms' })
+    expect(matchSeoPath('/terms/', '')).toEqual({ type: 'terms' })
+  })
+
   it('неизвестный путь — missing', () => {
     expect(matchSeoPath('/nope', '').type).toBe('missing')
   })
