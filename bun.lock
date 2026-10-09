@@ -15,6 +15,8 @@
         "@cdek-it/widget": "^3.11.1",
         "@fontsource/caveat": "^5.3.0",
         "@fontsource/fraunces": "^5.3.0",
+        "@fontsource/lora": "^5.3.0",
+        "@fontsource/manrope": "^5.3.0",
         "@fontsource/spline-sans": "^5.3.0",
         "@tailwindcss/vite": "^4.3.1",
         "maska": "^3.2.0",
@@ -216,6 +218,10 @@
     "@fontsource/caveat": ["@fontsource/caveat@5.3.0", "", {}, "sha512-eHTfzQxFSW9ABERRLNruHoNJmKed2J7pqTUc5lp4a4POMgXGKpxmWj3d9Hz10kmAg6iuTTLe6UagbA4bnsmfQw=="],
 
     "@fontsource/fraunces": ["@fontsource/fraunces@5.3.0", "", {}, "sha512-LEHTOBiZufQzAvnAe2rZ8ZknbDS28Q9kzwb0L+gZJEmjLGr8hhZ/5NuHXwDuHBWhVXYoiGGXmrb0H6Ko/RrHTg=="],
+
+    "@fontsource/lora": ["@fontsource/lora@5.3.0", "", {}, "sha512-OK1g1z01rHVPqO5aw/FOIoDqc46KKYZdgL3NOLkxLWDk6QhDHhdr/h2BV1cke6gTvR1tzpDfdKyUkGsC+sQLeQ=="],
+
+    "@fontsource/manrope": ["@fontsource/manrope@5.3.0", "", {}, "sha512-obJ1Dv3+uCA6HlHgW8u4BGYxJR9In2HW7gjJhlflEvkrj1X1iSEwu0fToL+JYGC/FEKFfIz1sBuPduvcL2gIAA=="],
 
     "@fontsource/spline-sans": ["@fontsource/spline-sans@5.3.0", "", {}, "sha512-iH7h2S+Xk3ZFvXweFjH1KGYBuwhrYS/M4RxudPLGiyrRoVvDjPzPaL6N8J+qtaLzZKrg82w1zHgwotYHwsWTqQ=="],
 

@@ -21,7 +21,7 @@
 
 /* semantic color variables for this project */
 :root {
-  --color-background: var(--vt-c-white);
+  --color-background: var(--bg);
   --color-background-soft: var(--vt-c-white-soft);
   --color-background-mute: var(--vt-c-white-mute);
 
@@ -31,10 +31,23 @@
   --color-heading: var(--vt-c-text-light-1);
   --color-text: var(--vt-c-text-light-1);
 
-  /* Бренд «Сказка Странствий» */
-  --brand-accent: #a8492b; /* терракота — акцент, CTA, активные состояния */
-  --brand-accent-strong: #8f3c22; /* усиленный/нажатый акцент */
-  --brand-ink: #33271a; /* тёмный текст: заголовки и значения */
+  /* Бренд «Сказка странствий» — палитра главной из макета */
+  --bg: #faf7f2;
+  --surface: #fffdf9;
+  --sand: #f1eae0;
+  --line: #eae1d5;
+  --line-strong: #cdbfae;
+  --ink: #2b2420;
+  --muted: #6b5d52;
+  --muted-2: #5e5047;
+  --accent: #a2412e;
+  --accent-dark: #8a3524;
+  --serif: 'Lora', Georgia, serif;
+  --sans: 'Manrope', system-ui, sans-serif;
+
+  --brand-accent: var(--accent);
+  --brand-accent-strong: var(--accent-dark);
+  --brand-ink: var(--ink);
 
   --section-gap: 160px;
 }
@@ -60,6 +73,10 @@
   font-weight: normal;
 }
 
+html {
+  overflow-x: clip;
+}
+
 body {
   color: var(--color-text);
   min-height: 100vh;
@@ -68,10 +85,7 @@ body {
     color 0.5s,
     background-color 0.5s;
   line-height: 1.6;
-  font-family:
-    'Noto Serif',
-    -apple-system,
-    sans-serif;
+  font-family: var(--sans);
   font-size: 15px;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

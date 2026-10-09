@@ -26,6 +26,12 @@ async function requireAdmin(to: RouteLocationNormalized) {
 // разбиваются на отдельные чанки и подгружаются по требованию.
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
+  scrollBehavior(to, from, saved) {
+    if (saved) return saved
+    if (to.hash) return { el: to.hash, behavior: 'smooth' }
+    if (to.path !== from.path) return { top: 0 }
+    return false
+  },
   routes: [
     {
       path: '/admin',
