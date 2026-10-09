@@ -14,13 +14,18 @@ export function toAboutResponse(about: IAboutPage | null, seller: ISellerInfo | 
       body: about?.body ?? "",
       images: about?.images ?? [],
     },
-    seller: {
-      fullName: seller?.fullName ?? "",
-      inn: seller?.inn ?? "",
-      phone: seller?.phone ?? "",
-      email: seller?.email ?? "",
-      links: seller?.links ?? [],
-    },
+    seller: toSellerResponse(seller),
+  };
+}
+
+/** Реквизиты продавца для ответа: их же показывает страница «Покупателям». */
+export function toSellerResponse(seller: ISellerInfo | null): SellerInfoData {
+  return {
+    fullName: seller?.fullName ?? "",
+    inn: seller?.inn ?? "",
+    phone: seller?.phone ?? "",
+    email: seller?.email ?? "",
+    links: seller?.links ?? [],
   };
 }
 

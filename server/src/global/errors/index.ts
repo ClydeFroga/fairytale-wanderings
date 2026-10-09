@@ -10,3 +10,4 @@ export * from "./CdekErrors";
 export * from "./PaymentErrors";
 export * from "./AboutErrors";
 export * from "./DocumentErrors";
+export * from "./TermsErrors";
