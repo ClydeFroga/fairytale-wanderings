@@ -9,6 +9,7 @@ app.get('/sitemap.xml', async (c) => {
   const urls: string[] = []
   if (origin) {
     urls.push(origin + '/')
+    urls.push(origin + '/about')
     const products = await ProductMethods.getList()
     for (const product of products) {
       urls.push(`${origin}/product/${product.slug}`)

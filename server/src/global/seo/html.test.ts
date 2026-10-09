@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { join } from 'node:path'
-import { escapeHtml, injectSeoHtml } from './html'
+import { aboutCrawlerBlock, escapeHtml, injectSeoHtml, textDescription, textParagraphs } from './html'
 import type { SeoDocument } from './html'
 
 process.env.PUBLIC_SITE_URL = 'http://localhost:3000'
@@ -88,5 +88,45 @@ describe('injectSeoHtml', () => {
     expect((html.match(/property="og:description"/g) ?? []).length).toBe(1)
     expect((html.match(/name="twitter:card"/g) ?? []).length).toBe(1)
     expect(html).toContain('property="og:type" content="website"')
+  })
+})
+
+describe('textDescription', () => {
+  it('короткий текст — как есть, переводы строк и пробелы схлопнуты', () => {
+    expect(textDescription('Раз.\n\n  Два.')).toBe('Раз. Два.')
+  })
+
+  it('длинный текст обрезается по слову и получает многоточие', () => {
+    const text = 'слово '.repeat(60)
+    const result = textDescription(text)
+    expect(result.length).toBeLessThanOrEqual(161)
+    expect(result.endsWith('слово…')).toBe(true)
+  })
+
+  it('текст без пробелов режется ровно по лимиту', () => {
+    expect(textDescription('я'.repeat(300))).toBe('я'.repeat(160) + '…')
+  })
+
+  it('текст ровно на лимите не обрезается', () => {
+    expect(textDescription('я'.repeat(160))).toBe('я'.repeat(160))
+  })
+
+  it('пустой текст — пустая строка', () => {
+    expect(textDescription('  \n ')).toBe('')
+  })
+})
+
+describe('textParagraphs', () => {
+  it('делит по пустой строке, одиночный перенос остаётся внутри абзаца', () => {
+    expect(textParagraphs('Раз\nстрока\n\n\nДва\n  \nТри')).toEqual(['Раз\nстрока', 'Два', 'Три'])
+  })
+})
+
+describe('aboutCrawlerBlock', () => {
+  it('экранирует заголовок и абзацы', () => {
+    const html = aboutCrawlerBlock({ title: '<b>Я</b>', paragraphs: ['<script>alert(1)</script>'] })
+    expect(html).toContain('<h1>&lt;b&gt;Я&lt;/b&gt;</h1>')
+    expect(html).toContain('<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>')
+    expect(html).not.toContain('<script>')
   })
 })

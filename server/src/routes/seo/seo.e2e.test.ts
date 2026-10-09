@@ -6,9 +6,11 @@ import { createApp } from '../../app'
 import { resetDatabase } from '../../test/e2e/db'
 import type { IProduct } from '@global/database/shema'
 import { ProductMethods } from '@global/database/methods/product'
+import { AboutPageMethods } from '@global/database/methods/aboutPage'
 import { createServeClientIndex } from '../../middleware/seoHtml'
 import { serveClient } from '../../middleware/staticFiles'
 import { adminHeaders } from '../../test/e2e/auth'
+import { pngFile } from '../../test/e2e/images'
 
 process.env.PUBLIC_SITE_URL = 'http://localhost:3000'
 
@@ -33,6 +35,16 @@ async function hideProduct(id: string) {
       headers: adminHeaders(),
     }),
   )
+}
+
+async function saveAbout(fields: Record<string, string>, files: File[] = []) {
+  const form = new FormData()
+  for (const [key, value] of Object.entries(fields)) form.set(key, value)
+  for (const file of files) form.append('image', file)
+  const res = await createApp().fetch(
+    new Request('http://localhost/content/about', { method: 'PATCH', body: form, headers: adminHeaders() }),
+  )
+  expect(res.status).toBe(200)
 }
 
 describe('SEO HTML / sitemap', () => {
@@ -182,6 +194,59 @@ describe('SEO HTML / sitemap', () => {
     try {
       const teddy = products.find((p) => p.name === 'Вязаный мишка Тедди')!
       const res = await htmlGet(`/product/${teddy.slug}`)
+      const html = await res.text()
+      expect(res.status).toBe(200)
+      expect(res.headers.get('content-type')).toContain('text/html')
+      expect(html).toContain('<!--seo-head-->')
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('GET /sitemap.xml — есть /about', async () => {
+    const res = await createApp().fetch(new Request('http://localhost/sitemap.xml'))
+    expect(await res.text()).toContain('<loc>http://localhost:3000/about</loc>')
+  })
+
+  it('HTML /about с данными — title, description, og:image первого фото, текст экранирован', async () => {
+    await saveAbout(
+      {
+        title: 'Как я начала вязать',
+        body: 'Бабушка научила меня вязать.\n\n<script>alert(1)</script>',
+      },
+      [await pngFile('me.png')],
+    )
+
+    const res = await htmlGet('/about')
+    const html = await res.text()
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('x-robots-tag')).toBeNull()
+    expect(html).toContain('<title>Как я начала вязать — Сказка странствий</title>')
+    expect(html).toContain('<meta name="description" content="Бабушка научила меня вязать.')
+    expect(html).toMatch(/og:image" content="http:\/\/localhost:3000\/images\/[^"]+-me\.webp"/)
+    expect(html).toContain('<link rel="canonical" href="http://localhost:3000/about">')
+    expect(html).toContain('<h1>Как я начала вязать</h1>')
+    expect(html).toContain('<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>')
+    expect(html).not.toContain('<script>alert(1)</script>')
+  })
+
+  it('HTML /about без данных — 200, «Обо мне», описание и обложка магазина', async () => {
+    const res = await htmlGet('/about')
+    const html = await res.text()
+
+    expect(res.status).toBe(200)
+    expect(html).toContain('<title>Обо мне — Сказка странствий</title>')
+    expect(html).toContain('Вязаные игрушки и вещи ручной работы.')
+    expect(html).toContain('og:image" content="http://localhost:3000/og.jpg"')
+  })
+
+  it('ошибка БД на /about — 200 HTML, сырой index', async () => {
+    const spy = spyOn(AboutPageMethods, 'get').mockImplementation(() => {
+      throw new Error('db down')
+    })
+    try {
+      const res = await htmlGet('/about')
       const html = await res.text()
       expect(res.status).toBe(200)
       expect(res.headers.get('content-type')).toContain('text/html')

@@ -24,6 +24,11 @@ describe('matchSeoPath', () => {
     expect(matchSeoPath('/order/success', '').type).toBe('utility')
   })
 
+  it('/about и /about/ — страница «Обо мне»', () => {
+    expect(matchSeoPath('/about', '')).toEqual({ type: 'about' })
+    expect(matchSeoPath('/about/', '')).toEqual({ type: 'about' })
+  })
+
   it('неизвестный путь — missing', () => {
     expect(matchSeoPath('/nope', '').type).toBe('missing')
   })

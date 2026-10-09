@@ -1,4 +1,5 @@
 import type { MiddlewareHandler } from 'hono'
+import { AboutPageMethods } from '@global/database/methods/aboutPage'
 import { ProductMethods } from '@global/database/methods/product'
 import {
   DEFAULT_OG_PATH,
@@ -7,10 +8,13 @@ import {
   absoluteUrl,
 } from '@global/seo/config'
 import {
+  aboutCrawlerBlock,
   crawlerBlock,
   escapeHtml,
   injectSeoHtml,
   productJsonLd,
+  textDescription,
+  textParagraphs,
   type SeoDocument,
 } from '@global/seo/html'
 import { matchSeoPath } from '@global/seo/page'
@@ -94,6 +98,26 @@ function productDocument(row: {
   }
 }
 
+const ABOUT_DEFAULT_TITLE = 'Обо мне'
+
+// Страница видна и пустой: без заголовка — «Обо мне», без текста — описание
+// магазина, без фото — общая обложка.
+function aboutDocument(about: { title: string; body: string; images: string[] }): SeoDocument {
+  const heading = about.title || ABOUT_DEFAULT_TITLE
+  const cover =
+    about.images.map((src) => absoluteUrl(src)).find((src): src is string => !!src) ??
+    absoluteUrl(DEFAULT_OG_PATH)
+  return {
+    title: `${heading} — ${SHOP_NAME}`,
+    description: textDescription(about.body) || SHOP_DESCRIPTION,
+    canonicalPath: '/about',
+    noindex: false,
+    ogImagePath: cover,
+    jsonLd: null,
+    crawlerHtml: aboutCrawlerBlock({ title: heading, paragraphs: textParagraphs(about.body) }),
+  }
+}
+
 async function defaultRead(): Promise<string | null> {
   const file = Bun.file(INDEX_HTML)
   if (!(await file.exists())) return null
@@ -139,6 +163,14 @@ export function createServeClientIndex(
     } else if (page.type === 'missing') {
       doc = notFoundDocument(pathname)
       status = 404
+    } else if (page.type === 'about') {
+      try {
+        const about = await AboutPageMethods.get()
+        doc = aboutDocument(about ?? { title: '', body: '', images: [] })
+      } catch (error) {
+        console.error('SEO: не удалось прочитать страницу «Обо мне»', error)
+        return new Response(index, { headers: htmlHeaders(false) })
+      }
     } else {
       try {
         const row = isUuid(page.param)

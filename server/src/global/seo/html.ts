@@ -57,6 +57,32 @@ export function crawlerBlock(input: {
   return `<div class="seo-crawler" style="display:none"><h1>${escapeHtml(input.name)}</h1><p>${input.price} ₽</p><p>${escapeHtml(input.description)}</p>${img}</div>`
 }
 
+const DESCRIPTION_LIMIT = 160
+
+/** Описание для meta: текст в одну строку, обрезан по слову до ~160 символов. */
+export function textDescription(text: string, limit = DESCRIPTION_LIMIT): string {
+  const flat = text.replace(/\s+/g, ' ').trim()
+  if (flat.length <= limit) return flat
+
+  const cut = flat.slice(0, limit)
+  const lastSpace = cut.lastIndexOf(' ')
+  // Слово длиннее половины лимита (или пробелов нет) — режем как есть.
+  return (lastSpace > limit / 2 ? cut.slice(0, lastSpace) : cut).trimEnd() + '…'
+}
+
+/** Абзацы простого текста: разделитель — пустая строка (как на витрине). */
+export function textParagraphs(text: string): string[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+}
+
+export function aboutCrawlerBlock(input: { title: string; paragraphs: string[] }): string {
+  const body = input.paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('')
+  return `<div class="seo-crawler" style="display:none"><h1>${escapeHtml(input.title)}</h1>${body}</div>`
+}
+
 function extraHead(doc: SeoDocument): string {
   const parts: string[] = []
   const canonical = absoluteUrl(doc.canonicalPath)
