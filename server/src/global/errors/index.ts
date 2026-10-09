@@ -8,3 +8,4 @@ export * from "./AuthErrors";
 export * from "./OrderErrors";
 export * from "./CdekErrors";
 export * from "./PaymentErrors";
+export * from "./AboutErrors";

@@ -1,6 +1,7 @@
 import type { IAboutPage, ISellerInfo } from "@global/database/shema";
 import type { AboutPageData } from "@global/database/methods/aboutPage";
 import type { SellerInfoData } from "@global/database/methods/sellerInfo";
+import type { AboutForm } from "./validator";
 
 /** Ответ GET/PATCH /content/about: служебные id и updated_at наружу не отдаём. */
 export type AboutResponse = { about: AboutPageData; seller: SellerInfoData };
@@ -20,5 +21,15 @@ export function toAboutResponse(about: IAboutPage | null, seller: ISellerInfo | 
       email: seller?.email ?? "",
       links: seller?.links ?? [],
     },
+  };
+}
+
+export function sellerFromForm(form: AboutForm): SellerInfoData {
+  return {
+    fullName: form.fullName,
+    inn: form.inn,
+    phone: form.phone,
+    email: form.email,
+    links: form.links,
   };
 }
