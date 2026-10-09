@@ -7,8 +7,15 @@ import {
   type DetailRow,
 } from '@/stores/products'
 import { useCategoriesStore } from '@/stores/categories'
-import { imageUrl } from '@/scripts/images'
 import { MAX_PRODUCT_IMAGES } from '@/api/products'
+import ImageSlotsField from '@/components/crm/ImageSlotsField.vue'
+import {
+  releaseSlots,
+  savedSlots,
+  slotFiles,
+  slotPaths,
+  type ImageSlot,
+} from '@/scripts/imageSlots'
 
 const props = defineProps<{
   open: boolean
@@ -27,15 +34,7 @@ const form = ref<ProductDraft>(emptyDraft())
 const saving = ref(false)
 const saveError = ref('')
 
-// Галерея товара: уже сохранённые картинки (path) и только что выбранные файлы
-// (file + object URL для превью) в одном списке — порядок в нём и уходит на сервер.
-type ImageSlot = { key: string; url: string; path?: string; file?: File }
-
 const slots = ref<ImageSlot[]>([])
-const imagesHint = ref('')
-const fileInput = ref<HTMLInputElement | null>(null)
-
-let slotSeq = 0
 
 function emptyDraft(): ProductDraft {
   return {
@@ -60,21 +59,12 @@ function detailsFromMap(map: Record<string, string>): DetailRow[] {
   return rows.length ? rows : [{ key: '', value: '' }]
 }
 
-// Object URL живёт, пока слот в списке; освобождаем при удалении и закрытии формы.
-function releaseSlots() {
-  for (const slot of slots.value) {
-    if (slot.file) URL.revokeObjectURL(slot.url)
-  }
-  slots.value = []
-  imagesHint.value = ''
-}
-
 // При открытии наполняем форму: из товара (редактирование) или пустую (создание).
 watch(
   () => [props.open, props.product] as const,
   ([open]) => {
     if (!open) return
-    releaseSlots()
+    releaseSlots(slots.value)
     saveError.value = ''
     const p = props.product
     form.value = p
@@ -96,16 +86,12 @@ watch(
           existingImages: [],
         }
       : emptyDraft()
-    slots.value = (p?.images ?? []).map((path) => ({
-      key: `saved-${slotSeq++}`,
-      url: imageUrl(path) ?? '',
-      path,
-    }))
+    slots.value = savedSlots(p?.images ?? [])
   },
   { immediate: true },
 )
 
-onBeforeUnmount(releaseSlots)
+onBeforeUnmount(() => releaseSlots(slots.value))
 
 const isEditing = computed(() => props.product !== null)
 const title = computed(() => (isEditing.value ? 'Редактировать товар' : 'Новый товар'))
@@ -114,36 +100,6 @@ const activeHint = computed(() =>
   form.value.isActive ? 'Виден покупателям в каталоге' : 'Скрыт из каталога',
 )
 const canSave = computed(() => !!form.value.name.trim() && !saving.value)
-
-const maxImages = MAX_PRODUCT_IMAGES
-const canAddImages = computed(() => slots.value.length < maxImages)
-const imagesCount = computed(() => `${slots.value.length} из ${maxImages}`)
-
-function pickImages() {
-  fileInput.value?.click()
-}
-
-function onFilesChange(e: Event) {
-  const input = e.target as HTMLInputElement
-  const picked = Array.from(input.files ?? [])
-  const free = maxImages - slots.value.length
-
-  for (const file of picked.slice(0, free)) {
-    slots.value.push({ key: `new-${slotSeq++}`, url: URL.createObjectURL(file), file })
-  }
-
-  imagesHint.value =
-    picked.length > free ? `Можно не больше ${maxImages} изображений — лишние не добавлены.` : ''
-
-  // Сбрасываем input, иначе повторный выбор того же файла не вызовет change.
-  input.value = ''
-}
-
-function removeImage(index: number) {
-  const [removed] = slots.value.splice(index, 1)
-  if (removed?.file) URL.revokeObjectURL(removed.url)
-  imagesHint.value = ''
-}
 
 function addDetail() {
   form.value.details.push({ key: '', value: '' })
@@ -160,8 +116,8 @@ async function save() {
     // Галерея: что осталось от старых картинок и что добавили — в порядке слотов.
     const draft: ProductDraft = {
       ...form.value,
-      existingImages: slots.value.flatMap((s) => (s.path ? [s.path] : [])),
-      imageFiles: slots.value.flatMap((s) => (s.file ? [s.file] : [])),
+      existingImages: slotPaths(slots.value),
+      imageFiles: slotFiles(slots.value),
     }
     await productsStore.saveProduct(draft, props.product?.id ?? null)
     emit('saved')
@@ -185,51 +141,11 @@ async function save() {
       </div>
 
       <div class="drawer-body">
-        <div class="field">
-          <label class="crm-label">
-            Изображения
-            <span class="images-count">{{ imagesCount }}</span>
-          </label>
-          <div class="images">
-            <div
-              v-for="(slot, i) in slots"
-              :key="slot.key"
-              class="image"
-              :style="{ backgroundImage: `url(${slot.url})` }"
-            >
-              <span v-if="i === 0" class="image-cover">обложка</span>
-              <button
-                type="button"
-                class="image-remove"
-                aria-label="Убрать изображение"
-                title="Убрать"
-                @click="removeImage(i)"
-              >
-                ✕
-              </button>
-            </div>
-            <button
-              v-if="canAddImages"
-              type="button"
-              class="image-add"
-              title="Добавить изображения"
-              @click="pickImages"
-            >
-              +
-            </button>
-            <input
-              ref="fileInput"
-              type="file"
-              accept="image/*"
-              multiple
-              class="file-hidden"
-              @change="onFilesChange"
-            />
-          </div>
-          <p class="images-hint" :class="{ warn: imagesHint }">
-            {{ imagesHint || 'Первая картинка — обложка в каталоге. Порядок задаётся списком.' }}
-          </p>
-        </div>
+        <ImageSlotsField
+          v-model="slots"
+          :max="MAX_PRODUCT_IMAGES"
+          hint="Первая картинка — обложка в каталоге. Порядок задаётся списком."
+        />
 
         <div class="field">
           <label class="crm-label">Название</label>
@@ -422,79 +338,10 @@ async function save() {
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
 }
-.images {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-.image {
-  width: 74px;
-  height: 74px;
-  border-radius: 10px;
-  border: 1px solid rgba(122, 92, 58, 0.2);
-  position: relative;
-  background-size: cover;
-  background-position: center;
-}
-.images-count {
-  margin-left: 6px;
-  font-size: 11px;
-  color: #a08a6a;
-}
 .images-hint {
   margin: 0;
   font-size: 12px;
   color: #a08a6a;
-}
-.images-hint.warn {
-  color: #b0623f;
-}
-.image-cover {
-  position: absolute;
-  left: 4px;
-  bottom: 4px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: rgba(46, 33, 19, 0.72);
-  color: #f7f1e6;
-  font-size: 10px;
-  line-height: 16px;
-}
-.image-remove {
-  position: absolute;
-  top: -7px;
-  right: -7px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: none;
-  background: #3a2a19;
-  color: #f7f1e6;
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 1;
-}
-.image-add {
-  width: 74px;
-  height: 74px;
-  border-radius: 10px;
-  border: 1.5px dashed rgba(122, 92, 58, 0.4);
-  background: #efe7d8;
-  color: #9a8464;
-  cursor: pointer;
-  font-size: 24px;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.image-add:hover {
-  border-color: rgba(168, 73, 43, 0.55);
-  color: var(--brand-accent-strong);
-}
-.file-hidden {
-  display: none;
 }
 .details {
   display: flex;
