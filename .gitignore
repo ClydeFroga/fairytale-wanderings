@@ -42,3 +42,6 @@ PLAN.md
 .superpowers
 .vscode
 compose.test.yml
+
+# Загруженные картинки товаров (UPLOAD_PATH)
+server/images/

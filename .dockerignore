@@ -12,8 +12,7 @@ node_modules
 # Результаты сборки и локальные данные
 client/dist
 dist
-test_uploads
-**/test_uploads
+server/images
 data
 coverage
 *.tsbuildinfo

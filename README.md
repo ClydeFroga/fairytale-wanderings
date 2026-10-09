@@ -69,7 +69,7 @@ DATABASE_URL=postgres://fairytale:fairytale@localhost:15432/fairytale
 POSTGRES_USER=fairytale
 POSTGRES_PASSWORD=fairytale
 POSTGRES_DB=fairytale
-UPLOAD_PATH=./test_uploads
+UPLOAD_PATH=./images
 BOT_TOKEN=
 PUBLIC_SITE_URL=
 ```
