@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach } from "bun:test";
+import fs from "fs";
 import { createApp } from "../../app";
 import { resetDatabase } from "../../test/e2e/db";
 import { adminHeaders, customerHeaders } from "../../test/e2e/auth";
+import { pngFile, uploadedPath } from "../../test/e2e/images";
 import { db } from "@global/database/DatabaseSingleton";
 import { aboutPage, sellerInfo } from "@global/database/shema";
 import type { AboutResponse } from "./helpers";
@@ -162,5 +164,73 @@ describe("About E2E", () => {
     const res = await app.fetch(new Request("http://localhost/about"));
 
     expect(res.status).toBe(404);
+  });
+
+  it("фото загружаются в порядке выбора и лежат на диске", async () => {
+    const res = await patchAbout(aboutForm(FILLED, [await pngFile("a.png"), await pngFile("b.png")]));
+    const { about } = (await res.json()) as AboutResponse;
+
+    expect(res.status).toBe(200);
+    expect(about.images).toHaveLength(2);
+    expect(about.images[0]).toContain("-a.webp");
+    expect(about.images[1]).toContain("-b.webp");
+    for (const image of about.images) expect(fs.existsSync(uploadedPath(image))).toBe(true);
+  });
+
+  it("existingImages оставляет выбранные, выпавшее фото удаляется с диска", async () => {
+    const first = await patchAbout(aboutForm(FILLED, [await pngFile("a.png"), await pngFile("b.png")]));
+    const [keep, drop] = ((await first.json()) as AboutResponse).about.images;
+
+    const res = await patchAbout(aboutForm({ ...FILLED, existingImages: JSON.stringify([keep]) }));
+    const { about } = (await res.json()) as AboutResponse;
+
+    expect(about.images).toEqual([keep!]);
+    expect(fs.existsSync(uploadedPath(keep!))).toBe(true);
+    expect(fs.existsSync(uploadedPath(drop!))).toBe(false);
+  });
+
+  it("existingImages = [] без новых файлов очищает галерею и диск", async () => {
+    const first = await patchAbout(aboutForm(FILLED, [await pngFile("a.png")]));
+    const [image] = ((await first.json()) as AboutResponse).about.images;
+
+    const res = await patchAbout(aboutForm({ ...FILLED, existingImages: "[]" }));
+
+    expect(((await res.json()) as AboutResponse).about.images).toEqual([]);
+    expect(fs.existsSync(uploadedPath(image!))).toBe(false);
+  });
+
+  it("PATCH без полей фото не трогает галерею", async () => {
+    const first = await patchAbout(aboutForm(FILLED, [await pngFile("a.png")]));
+    const images = ((await first.json()) as AboutResponse).about.images;
+
+    await patchAbout(aboutForm({ ...FILLED, title: "Другой заголовок" }));
+
+    expect((await getAbout()).body.about.images).toEqual(images);
+  });
+
+  it("больше пяти фото → 400 TOO_MANY_IMAGES, и при добавлении к оставленным тоже", async () => {
+    const six = await Promise.all(Array.from({ length: 6 }, (_, i) => pngFile(`p${i}.png`)));
+    const tooMany = await patchAbout(aboutForm(FILLED, six));
+    expect(tooMany.status).toBe(400);
+    expect(((await tooMany.json()) as { code: string }).code).toBe("TOO_MANY_IMAGES");
+
+    const first = await patchAbout(aboutForm(FILLED, six.slice(0, 4)));
+    const kept = ((await first.json()) as AboutResponse).about.images;
+    const overflow = await patchAbout(
+      aboutForm({ ...FILLED, existingImages: JSON.stringify(kept) }, six.slice(4)),
+    );
+    expect(overflow.status).toBe(400);
+    expect((await getAbout()).body.about.images).toEqual(kept);
+  });
+
+  it("чужой путь в existingImages игнорируется", async () => {
+    const first = await patchAbout(aboutForm(FILLED, [await pngFile("a.png")]));
+    const images = ((await first.json()) as AboutResponse).about.images;
+
+    const res = await patchAbout(
+      aboutForm({ ...FILLED, existingImages: JSON.stringify([...images, "images/../../secret.webp"]) }),
+    );
+
+    expect(((await res.json()) as AboutResponse).about.images).toEqual(images);
   });
 });

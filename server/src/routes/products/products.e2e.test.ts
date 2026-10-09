@@ -1,27 +1,12 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import fs from "fs";
-import path from "path";
-import sharp from "sharp";
 import { createApp } from "../../app";
 import { resetDatabase } from "../../test/e2e/db";
 import type { IProduct } from "@global/database/shema";
 import { adminHeaders, customerHeaders } from "../../test/e2e/auth";
+import { pngFile, uploadedPath } from "../../test/e2e/images";
 
 const app = createApp();
-
-// Минимальная валидная картинка — sharp должен её принять и сконвертировать в webp.
-async function pngFile(name: string): Promise<File> {
-  const buffer = await sharp({
-    create: { width: 4, height: 4, channels: 3, background: "#c08a5a" },
-  })
-    .png()
-    .toBuffer();
-  return new File([new Uint8Array(buffer)], name, { type: "image/png" });
-}
-
-function uploadedPath(relative: string): string {
-  return path.resolve(process.env.UPLOAD_PATH || "", relative);
-}
 
 // Мутации закрыты requireAdmin — по умолчанию ходим как владелица магазина.
 async function createProduct(

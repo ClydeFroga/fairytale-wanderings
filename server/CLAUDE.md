@@ -58,8 +58,12 @@ src/
       route.ts                  # /payments/config, Result/Success/Fail Робокассы
       helpers.ts                # письмо/уведомление об оплате, разбор InvId
       payments.e2e.test.ts
+    about/
+      route.ts                  # GET /content/about (публичный) и PATCH /content/about (страница «Обо мне» + реквизиты)
+      validator.ts  helpers.ts
+      about.e2e.test.ts
   test/e2e/                     # инфраструктура E2E: preload, postgres, migrate, reset
-    preload.ts  postgres.ts  migrate.ts  db.ts
+    preload.ts  postgres.ts  migrate.ts  db.ts  images.ts
   global/
     database/
       DatabaseSingleton.ts      # пул + drizzle, экспортирует готовый `db`
@@ -67,9 +71,9 @@ src/
       types/                    # DTO запросов к БД (фильтры, сортировка и т.п.)
         product.ts  index.ts
       methods/                  # ТОЛЬКО обращения к БД (репозиторий)
-        product.ts  order.ts  orderItem.ts  user.ts  category.ts
+        product.ts  order.ts  orderItem.ts  user.ts  category.ts  aboutPage.ts  sellerInfo.ts
       shema/                    # Drizzle-схема, по файлу на сущность (+ index)
-        productSchema.ts userSchema.ts orderSchema.ts categorySchema.ts index.ts
+        productSchema.ts userSchema.ts orderSchema.ts categorySchema.ts aboutSchema.ts index.ts
       seed/                     # данные и функции сидинга
         data.ts  seedProducts.ts
       seed.ts                   # CLI: bun run db:seed
@@ -110,7 +114,8 @@ src/
 - PK везде `uuid` (`defaultRandom`). У **products** JS-ключ намеренно `_id` (колонка `id`) и camelCase-поля (`image: string[]`, `isActive`, `details`, `stock`) — чтобы фронт-витрина работала без изменений. Колонки в БД — snake_case.
 - Статус заказа: `created → paid → assembled → shipped → completed`, плюс `cancelled` вне цепочки. Двигать можно только вперёд (в том числе через шаг) и в `cancelled`; из `completed`/`cancelled` — никуда (`routes/orders/statusFlow.ts`). На каждой смене статуса телеграм-клиенту уходит уведомление (`global/notify/`), у веб-заказов `chat_id` нет — им не шлём.
 - Категории: `slug` — стабильный ключ для фильтра витрины (`GET /products?category=<slug>`), генерируется из названия транслитом при создании и **не меняется** при переименовании. Названия уникальны без учёта регистра (проверка в роуте). Удаление категории обнуляет `products.category_id`, товары остаются.
-- Картинки товара — массив относительных путей (`images/x.webp`) в `products.image`, файлы лежат в `UPLOAD_PATH/images` и раздаются сервером. Загрузка: повторяющееся поле формы `image` (Hono собирает одноимённые поля в массив), не больше `MAX_PRODUCT_IMAGES` (5). При `PATCH` набор задаётся полем `existingImages` (JSON-массив оставляемых путей) + новые файлы; выпавшие файлы удаляются с диска (`Upload.removeMany`). Первая картинка — обложка.
+- Картинки товара — массив относительных путей (`images/x.webp`) в `products.image`, файлы лежат в `UPLOAD_PATH/images` и раздаются сервером. Загрузка: повторяющееся поле формы `image` (Hono собирает одноимённые поля в массив), не больше `MAX_IMAGES` (5, `global/utils/upload.ts`). При `PATCH` набор задаётся полем `existingImages` (JSON-массив оставляемых путей) + новые файлы; выпавшие файлы удаляются с диска (`Upload.removeMany`). Первая картинка — обложка.
+- **«Обо мне» и реквизиты продавца** — однострочные таблицы `about_page` и `seller_info` (`id = 1`, check), строки появляются при первом сохранении из CRM. `PATCH /content/about` — полная замена формы (непришедшее текстовое поле → пустая строка), фото — как у товара (`existingImages` + новые `image`, лимит `MAX_IMAGES`). Ошибки проверки — `400 INVALID_ABOUT` с русским текстом. Реквизиты лежат отдельно, потому что их же будут читать оферта и подвал. API живёт на `/content/about`, а не на `/about`: `/about` — путь страницы витрины, и JSON там отдавался бы вместо `index.html` при обновлении страницы (и обходил SEO-middleware), поэтому API этот путь намеренно не занимает.
 - `users` нужны только боту (идентификация — сам Telegram). У веб-заказов `userId = null` (гостевой checkout).
 - **Параметры посылки у товара:** `weight` (граммы), `length/width/height` (см, в упакованном виде) — необязательные, `null` значит «нет своих», тогда клиент берёт коробку по умолчанию из `/cdek/config`. В форме товара пустое поле **очищает** колонку (`optionalNumber` в `routes/products/helpers.ts`), непришедшее — не трогает. Посылку на заказ собирает клиент (`client/src/scripts/parcel.ts`), потому что она уходит прямо в виджет.
 - **Отправитель СДЭК — код города** (`CDEK_FROM_CITY_CODE`), не название: калькулятор отвечает 400 на `from_location` со строковым адресом. `GET /cdek/service?action=cities` — разовая настроечная ручка для поиска этого кода, виджет её не вызывает.
