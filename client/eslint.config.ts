@@ -16,7 +16,8 @@ export default defineConfigWithVueTs(
 
   {
     name: 'app/files-to-ignore',
-    ignores: ['**/dist/**', '**/dist-ssr/**', '**/coverage/**'],
+    // public/ — готовые файлы как есть (в том числе вендорный SDK Телеграма).
+    ignores: ['**/dist/**', '**/dist-ssr/**', '**/coverage/**', 'public/**'],
   },
 
   pluginVue.configs['flat/essential'],
