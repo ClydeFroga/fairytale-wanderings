@@ -4,6 +4,7 @@ import { PhoneListener } from './listeners/PhoneListener'
 import { AdminListener } from './listeners/AdminListener'
 import type { Listener } from './listeners/Listener'
 import { webAppUrl } from '@global/telegram/webAppUrl'
+import { errorMessage } from '@global/utils/errorMessage'
 
 class Bot {
   private bot: Telegraf
@@ -20,12 +21,13 @@ class Bot {
       this.startListeners()
       await this.setMenuButton()
 
-      // launch() резолвится только при остановке бота — не ждём его здесь.
-      this.bot.launch()
+      // launch() резолвится только при остановке бота — не ждём его здесь. Но
+      // его отказ (Telegram API недоступен) ловим: необработанный — уронил бы процесс.
+      this.bot.launch().catch((error) => console.error('Telegram-бот остановился:', errorMessage(error)))
 
       console.log('Бот запущен успешно')
     } catch (error) {
-      console.error('Критическая ошибка при старте бота:', error)
+      console.error('Критическая ошибка при старте бота:', errorMessage(error))
       throw error
     }
   }
@@ -45,7 +47,7 @@ class Bot {
         menuButton: { type: 'web_app', text: 'Магазин', web_app: { url } },
       })
     } catch (error) {
-      console.warn('Не удалось установить кнопку меню (проверьте, что WEBAPP_URL — https):', error)
+      console.warn('Не удалось установить кнопку меню (проверьте, что WEBAPP_URL — https):', errorMessage(error))
     }
   }
 

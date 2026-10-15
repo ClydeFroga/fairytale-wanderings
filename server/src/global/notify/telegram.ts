@@ -1,4 +1,5 @@
 import { Telegram } from "telegraf";
+import { errorMessage } from "@global/utils/errorMessage";
 
 let cached: Telegram | null = null;
 
@@ -30,6 +31,6 @@ export async function sendCustomerMessage(chatId: number, text: string): Promise
   try {
     await telegram.sendMessage(chatId, text);
   } catch (err) {
-    console.error(`Не удалось отправить уведомление в Telegram (chatId=${chatId}):`, err);
+    console.error(`Не удалось отправить уведомление в Telegram (chatId=${chatId}):`, errorMessage(err));
   }
 }

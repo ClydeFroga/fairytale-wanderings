@@ -5,6 +5,7 @@ import { Bot } from './bot/main'
 import { createServerApp } from './app'
 import { serveClient, serveUploads } from './middleware/staticFiles'
 import { serveClientIndex } from './middleware/seoHtml'
+import { errorMessage } from '@global/utils/errorMessage'
 
 const app = createServerApp()
 
@@ -20,6 +21,12 @@ async function startBot() {
     console.warn('BOT_TOKEN не задан — Telegram-бот не запущен')
     return
   }
+  // Токен нужен и без бота — им проверяется initData Mini App (вход в CRM). Флаг
+  // для сервера, откуда Telegram API недоступен: поллинг там только сыплет ошибками.
+  if (process.env.BOT_DISABLED === 'true') {
+    console.warn('BOT_DISABLED=true — Telegram-бот не запущен')
+    return
+  }
 
   try {
     const bot = new Bot(token)
@@ -29,7 +36,7 @@ async function startBot() {
     process.once('SIGTERM', () => bot.stop('SIGTERM'))
   } catch (error) {
     // Ошибка бота не должна ронять HTTP-API — просто логируем.
-    console.error('Не удалось запустить Telegram-бота:', error)
+    console.error('Не удалось запустить Telegram-бота:', errorMessage(error))
   }
 }
 
