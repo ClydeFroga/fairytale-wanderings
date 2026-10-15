@@ -13,6 +13,11 @@ x-logging: &logging
 
 services:
   app:
+    build:
+      # Сборка (bun install) идёт в сети хоста, а не через docker-мост: из
+      # контейнеров на сервере реестр npm (за Cloudflare) по IPv4 не отвечает,
+      # а у хоста есть IPv6, по которому он доступен.
+      network: host
     # Порт 3000 наружу не публикуем: снаружи сайт доступен только через Caddy.
     ports: !reset []
     logging: *logging
