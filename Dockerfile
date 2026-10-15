@@ -1,9 +1,18 @@
 # syntax=docker/dockerfile:1
 
 # Проект целиком на Bun (сервер запускает TypeScript напрямую, без сборки),
-# поэтому и образ — bun, а не node.
-FROM oven/bun:1 AS build
+# поэтому и образ — bun, а не node. Версия зафиксирована: плавающий тег oven/bun:1
+# менял бы сборку сам по себе.
+ARG BUN_VERSION=1.3.14
+FROM oven/bun:${BUN_VERSION} AS build
 WORKDIR /app
+
+# Реестр npm. На сервере в РФ — зеркало (NPM_REGISTRY в корневом .env):
+# registry.npmjs.org стоит за Cloudflare, и из docker-контейнеров на сервере он не отвечает.
+# В bun.lock адреса реестра не записаны, а целостность пакетов проверяется по
+# хешам из него же, так что зеркало подменить содержимое не может.
+ARG NPM_REGISTRY=https://registry.npmjs.org/
+ENV BUN_CONFIG_REGISTRY=$NPM_REGISTRY
 
 # Сначала манифесты: слой с зависимостями переиспользуется, пока они не менялись.
 COPY package.json bun.lock bunfig.toml ./
@@ -24,15 +33,17 @@ RUN bun run build:client
 # Клиент в рантайме — уже собранные файлы, его пакеты (vue, vite, виджет СДЭК)
 # серверу не нужны; dev-зависимости (drizzle-kit, testcontainers) и peer-ы
 # (typescript, @types/*) — тоже. Образ от этого вдвое меньше (~430 МБ против ~850).
-FROM oven/bun:1 AS deps
+FROM oven/bun:${BUN_VERSION} AS deps
 WORKDIR /app
+ARG NPM_REGISTRY=https://registry.npmjs.org/
+ENV BUN_CONFIG_REGISTRY=$NPM_REGISTRY
 COPY package.json bun.lock bunfig.toml ./
 COPY client/package.json ./client/
 COPY server/package.json ./server/
 RUN bun install --frozen-lockfile --production --filter server --omit=peer
 
 # --- образ для запуска: сервер + собранный клиент ---
-FROM oven/bun:1 AS runtime
+FROM oven/bun:${BUN_VERSION} AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 

@@ -7,6 +7,8 @@ services:
         # Адрес API вшивается в клиентский бандл на сборке. Сайт и API — на одном
         # домене, поэтому в проде это домен магазина (тот же, что в WEBAPP_URL).
         VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+        # Реестр npm для bun install; на сервере в РФ — зеркало (см. README).
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
     restart: unless-stopped
     ports:
       - '${APP_PORT:-3000}:3000'

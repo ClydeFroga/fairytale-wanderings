@@ -209,6 +209,7 @@ cd fairytale-wanderings
   COMPOSE_FILE=compose.yml:compose.prod.yml
   SITE_DOMAIN=example.ru
   VITE_API_URL=https://example.ru
+  NPM_REGISTRY=https://registry.npmmirror.com/
   ```
 
 - `.env.production` — для приложения и Postgres: шаблон `.env.example`. В проде
