@@ -44,6 +44,8 @@ const tariffLine = computed(() => {
   return [chosen.tariffName, price, period].filter(Boolean).join(' · ')
 })
 
+const chosenMeta = computed(() => [methodLabel.value, tariffLine.value].filter(Boolean).join(' · '))
+
 // Виджет отдаёт либо ПВЗ/постамат (у него есть code), либо адрес из геокодера
 // Яндекса — для курьерской доставки.
 function handleChoose(
@@ -137,61 +139,213 @@ onBeforeUnmount(() => widget.value?.destroy())
 </script>
 
 <template>
-  <div class="flex flex-col gap-2">
-    <p class="text-base font-medium leading-normal">Доставка СДЭК</p>
-
-    <div
-      v-if="selection"
-      class="flex flex-col gap-1 rounded-xl border border-(--vt-c-divider-light-1) p-4"
-    >
-      <p class="text-base font-medium leading-normal">{{ methodLabel }}</p>
-      <p class="text-(--vt-c-text-light-2) text-sm font-normal leading-normal">
-        {{ selection.address }}
-      </p>
-      <p v-if="tariffLine" class="text-(--vt-c-text-light-2) text-sm font-normal leading-normal">
-        {{ tariffLine }}
-      </p>
-      <button
-        type="button"
-        class="mt-2 self-start cursor-pointer text-sm underline"
-        @click="openWidget"
-      >
+  <div class="pvz-block" :class="{ 'has-error': hasError && !selection }">
+    <div v-if="selection" class="pvz pvz-chosen">
+      <div class="pvz-info">
+        <svg
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#3E7A55"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M8 12.5l2.5 2.5L16 9.5" />
+        </svg>
+        <div>
+          <div class="pvz-title">{{ selection.address }}</div>
+          <div class="pvz-sub">{{ chosenMeta }}</div>
+        </div>
+      </div>
+      <button type="button" class="btn-pill ghost" :disabled="loading" @click="openWidget">
         Изменить
       </button>
     </div>
 
-    <button
-      v-else
-      type="button"
-      class="btn-primary max-w-[480px]"
-      :disabled="loading"
-      @click="openWidget"
-    >
-      <span class="truncate">{{ loading ? 'Загружаем карту…' : 'Выбрать пункт выдачи' }}</span>
-    </button>
+    <div v-else class="pvz pvz-empty">
+      <div class="pvz-info">
+        <svg
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#A2412E"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" />
+          <circle cx="12" cy="9.5" r="2.5" />
+        </svg>
+        <div>
+          <div class="pvz-title">Пункт выдачи не выбран</div>
+          <div class="pvz-sub">Стоимость доставки рассчитается после выбора</div>
+        </div>
+      </div>
+      <button type="button" class="btn-pill" :disabled="loading" @click="openWidget">
+        {{ loading ? 'Загружаем карту…' : 'Выбрать пункт выдачи' }}
+      </button>
+    </div>
 
-    <!-- Курьеру виджет отдаёт адрес только до дома — квартиру спрашиваем сами. -->
-    <FormField
-      v-if="selection?.method === 'cdek_door'"
-      v-model="flat"
-      label="Квартира или офис"
-      placeholder="Например, 42"
-      inputmode="numeric"
-      :has-error="Boolean(hasError) && !flat.trim()"
-    />
-
-    <p v-if="stale && !selection" class="text-(--vt-c-text-light-2) text-sm leading-normal">
+    <p v-if="stale && !selection" class="field-hint">
       Состав заказа изменился — выберите пункт выдачи заново, чтобы пересчитать доставку.
     </p>
-    <p v-if="hasError && !selection" class="text-red-600 text-sm font-medium leading-normal">
-      Выберите пункт выдачи на карте
-    </p>
-    <p
-      v-else-if="hasError && selection?.method === 'cdek_door' && !flat.trim()"
-      class="text-red-600 text-sm font-medium leading-normal"
-    >
-      Укажите квартиру или офис — курьеру нужен точный адрес
-    </p>
-    <p v-if="loadError" class="text-red-600 text-sm font-medium leading-normal">{{ loadError }}</p>
+    <p v-if="hasError && !selection" class="field-error">Выберите пункт выдачи</p>
+    <p v-if="loadError" class="field-error">{{ loadError }}</p>
+
+    <!-- Курьеру виджет отдаёт адрес только до дома — квартиру спрашиваем сами. -->
+    <div v-if="selection?.method === 'cdek_door'" class="flat-field">
+      <FormField
+        v-model="flat"
+        label="Квартира или офис"
+        placeholder="Например, 42"
+        inputmode="numeric"
+        error="Укажите квартиру или офис — курьеру нужен точный адрес"
+        :has-error="Boolean(hasError) && !flat.trim()"
+      />
+    </div>
   </div>
 </template>
+
+<style scoped>
+.pvz-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.btn-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 24px;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn-pill:hover:not(:disabled) {
+  background: var(--accent-dark);
+  color: #fff;
+}
+
+.btn-pill:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.btn-pill.ghost {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  height: 44px;
+}
+
+.btn-pill.ghost:hover:not(:disabled) {
+  background: var(--sand);
+  color: var(--ink);
+}
+
+.pvz {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 14px;
+}
+
+.pvz-empty {
+  border: 2px dashed var(--line-strong);
+}
+
+.pvz-chosen {
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+}
+
+.pvz-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.pvz-info svg {
+  flex: none;
+}
+
+.pvz-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.pvz-sub {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.has-error .pvz-empty {
+  border-color: #b3261e;
+}
+
+.field-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.field-error {
+  margin: 0;
+  font-size: 13px;
+  color: #b3261e;
+}
+
+.flat-field {
+  margin-top: 4px;
+}
+
+@media (max-width: 720px) {
+  .pvz {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px;
+  }
+
+  .pvz-empty {
+    border: 0;
+    padding: 0;
+  }
+
+  .pvz-empty .pvz-info {
+    display: none;
+  }
+
+  .pvz-empty::before {
+    content: 'Стоимость рассчитается после выбора пункта выдачи';
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .pvz .btn-pill {
+    height: 52px;
+    font-size: 16px;
+  }
+
+  .pvz-chosen .btn-pill {
+    align-self: flex-start;
+    height: 40px;
+  }
+}
+</style>

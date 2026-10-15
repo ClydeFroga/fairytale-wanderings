@@ -66,8 +66,8 @@ src/
       route.ts                  # GET /content/terms, GET /content/terms/offer|privacy (файл), PATCH /content/terms
       validator.ts  helpers.ts
       terms.e2e.test.ts
-  test/e2e/                     # инфраструктура E2E: preload, postgres, migrate, reset
-    preload.ts  postgres.ts  migrate.ts  db.ts  images.ts
+  test/e2e/                     # инфраструктура E2E: preload, postgres, reset
+    preload.ts  postgres.ts  db.ts  images.ts
   global/
     database/
       DatabaseSingleton.ts      # пул + drizzle, экспортирует готовый `db`
@@ -81,6 +81,7 @@ src/
       seed/                     # данные и функции сидинга
         data.ts  seedProducts.ts
       seed.ts                   # CLI: bun run db:seed
+      migrate.ts                # миграции без drizzle-kit: прод-образ (db:migrate:deploy) и e2e
     errors/                     # классы ошибок (AppError + наследники)
     mail/                       # SMTP-уведомление (nodemailer): mailer.ts + orderEmail.ts
     cdek/                       # доставка СДЭК: config.ts (env) + api.ts (токен, прокси, кэш), parcel.ts (посылка для расчёта)

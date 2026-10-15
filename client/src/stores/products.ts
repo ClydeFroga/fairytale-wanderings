@@ -149,7 +149,7 @@ export const useProductsStore = defineStore('products', () => {
     loading.value = true
     error.value = ''
     try {
-      const list = await getProducts()
+      const list = await getProducts({ includeInactive: true })
       catalog.value = list.map(fromApi)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Не удалось загрузить товары'

@@ -1,15 +1,11 @@
 import { Hono } from 'hono'
 import { ProductMethods } from '@global/database/methods/product'
-import {
-  createProductValidator,
-  listProductsValidator,
-  updateProductValidator,
-} from './validator'
+import { createProductValidator, listProductsValidator, updateProductValidator } from './validator'
 import { mapFormToProduct } from './helpers'
 import type { INewProduct } from '@global/database/shema'
 import { MAX_IMAGES, Upload, resolveKeptImages } from '@global/utils/upload'
 import { AppError, ProductNotFoundError, TooManyImagesError } from '@global/errors'
-import { requireAdmin } from '../../middleware/requireAdmin'
+import { callerIsAdmin, requireAdmin } from '../../middleware/requireAdmin'
 import { uniqueSlug } from '@global/utils/slugify'
 import { isUuid } from '@global/utils/isUuid'
 
@@ -18,16 +14,17 @@ const app = new Hono()
 // Каталог читают все; менять товары может только владелица.
 
 app.get('/', listProductsValidator, async (c) => {
-  const products = await ProductMethods.getList(c.req.valid('query'))
+  const query = c.req.valid('query')
+  // Скрытые товары видит только админка. Гостю флаг не даёт полный список.
+  const includeInactive = query.includeInactive === true && (await callerIsAdmin(c))
+  const products = await ProductMethods.getList({ ...query, includeInactive })
 
   return c.json(products)
 })
 
 app.get('/:id', async (c) => {
   const { id } = c.req.param()
-  const product = isUuid(id)
-    ? await ProductMethods.getById(id)
-    : await ProductMethods.getBySlug(id)
+  const product = isUuid(id) ? await ProductMethods.getById(id) : await ProductMethods.getBySlug(id)
 
   if (!product || !product.isActive) {
     throw new ProductNotFoundError(id)

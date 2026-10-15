@@ -140,8 +140,8 @@ async function toggleSearch() {
         </button>
         <nav class="nav" aria-label="Основное меню">
           <a href="/#catalog" @click.prevent="goToSection('catalog')">Каталог</a>
-          <RouterLink to="/about">О мастере</RouterLink>
-          <a href="/#delivery" @click.prevent="goToSection('delivery')">Доставка и оплата</a>
+          <RouterLink to="/about">Обо мне</RouterLink>
+          <RouterLink to="/terms">Доставка и оплата</RouterLink>
         </nav>
       </div>
 
@@ -171,6 +171,7 @@ async function toggleSearch() {
         <RouterLink
           to="/cart"
           class="icon-btn cart-btn"
+          :class="{ 'is-current': route.name === 'cart' }"
           :aria-label="`Корзина, товаров: ${cartStore.totalQuantity}`"
         >
           <svg
@@ -195,8 +196,8 @@ async function toggleSearch() {
 
     <nav v-if="menuOpen" class="mobile-menu" aria-label="Меню">
       <a href="/#catalog" @click.prevent="goToSection('catalog')">Каталог</a>
-      <RouterLink to="/about">О мастере</RouterLink>
-      <a href="/#delivery" @click.prevent="goToSection('delivery')">Доставка и оплата</a>
+      <RouterLink to="/about">Обо мне</RouterLink>
+      <RouterLink to="/terms">Доставка и оплата</RouterLink>
     </nav>
 
     <div v-if="searchOpen" class="container header-search">
@@ -275,7 +276,8 @@ async function toggleSearch() {
   color: var(--muted-2);
 }
 
-.nav a:hover {
+.nav a:hover,
+.nav a[aria-current='page'] {
   color: var(--accent);
 }
 
@@ -324,6 +326,10 @@ async function toggleSearch() {
 
 .cart-btn {
   position: relative;
+}
+
+.cart-btn.is-current {
+  background: var(--sand);
 }
 
 .cart-badge {
@@ -410,6 +416,10 @@ async function toggleSearch() {
     font-weight: 600;
     color: var(--ink);
     text-decoration: none;
+  }
+
+  .mobile-menu a[aria-current='page'] {
+    color: var(--accent);
   }
 }
 </style>

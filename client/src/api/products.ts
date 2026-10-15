@@ -4,6 +4,7 @@ import type { IProduct } from '@/types/product'
 export type ProductListFilters = {
   name?: string
   category?: string // slug категории
+  includeInactive?: boolean // только админка: скрытые товары вместе с активными
 }
 
 export function getProducts(filters: ProductListFilters = {}) {
@@ -11,7 +12,7 @@ export function getProducts(filters: ProductListFilters = {}) {
 
   for (const [key, value] of Object.entries(filters)) {
     if (value) {
-      params.set(key, value)
+      params.set(key, String(value))
     }
   }
 

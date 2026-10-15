@@ -1,3 +1,4 @@
+import { nextTick } from 'vue'
 import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vue-router'
 import StoreView from '../views/StoreView.vue'
 import AdminLayout from '../layouts/AdminLayout.vue'
@@ -28,8 +29,14 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   scrollBehavior(to, from, saved) {
     if (saved) return saved
-    if (to.hash) return { el: to.hash, behavior: 'smooth' }
-    if (to.path !== from.path) return { top: 0 }
+    // Якорь на другую страницу прокручиваем сами, уже внутри перехода:
+    // координаты роутера в этот момент смещены и прокрутка сбрасывается.
+    if (to.hash) {
+      // На время смены страницы остаёмся у верха: якорь доскроллим после перехода.
+      if (pageTransitionActive() && to.path !== from.path) return { top: 0, behavior: 'auto' }
+      return { el: to.hash, behavior: 'smooth' }
+    }
+    if (to.path !== from.path) return { top: 0, behavior: 'auto' }
     return false
   },
   routes: [
@@ -89,6 +96,81 @@ const router = createRouter({
       component: () => import('../views/NotFoundView.vue'),
     },
   ],
+})
+
+function pageTransitionActive() {
+  return (
+    typeof document !== 'undefined' &&
+    typeof document.startViewTransition === 'function' &&
+    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+}
+
+function queryValue(route: RouteLocationNormalized, key: string) {
+  const value = route.query[key]
+  return typeof value === 'string' ? value : ''
+}
+
+function isCatalogChange(to: RouteLocationNormalized, from: RouteLocationNormalized) {
+  return (
+    to.name === 'store' &&
+    from.name === 'store' &&
+    to.path === from.path &&
+    (queryValue(to, 'category') !== queryValue(from, 'category') ||
+      queryValue(to, 'q') !== queryValue(from, 'q'))
+  )
+}
+
+// Кадр старой страницы растворяется в кадр новой. Иначе смена маршрута — резкий скачок.
+// Та же смена, но только для сетки, когда на главной меняются категория или поиск.
+router.beforeResolve((to, from) => {
+  if (!pageTransitionActive()) return
+  // Первый заход и смена только hash страницу не меняют.
+  if (!from.matched.length) return
+  if (to.path.startsWith('/admin') || from.path.startsWith('/admin')) return
+
+  const catalogChange = isCatalogChange(to, from)
+  if (to.path === from.path && !catalogChange) return
+
+  const switchClass = catalogChange ? 'catalog-switch' : 'page-switch'
+
+  return new Promise<void>((resolveNavigation) => {
+    let resolveDom = () => {}
+    const timeout = window.setTimeout(() => resolveDom(), 800)
+    const stop = router.afterEach(() => {
+      stop()
+      window.clearTimeout(timeout)
+      // Отрисовка и прокрутка наверх — до снимка нового кадра.
+      void nextTick(() => nextTick(() => resolveDom()))
+    })
+
+    const clearSwitch = () => document.documentElement.classList.remove(switchClass)
+
+    try {
+      document.documentElement.classList.add(switchClass)
+      const transition = document.startViewTransition(() => {
+        return new Promise<void>((resolve) => {
+          resolveDom = resolve
+          resolveNavigation()
+        })
+      })
+      const hash = to.hash
+      const path = to.path
+      transition.finished.finally(clearSwitch)
+      transition.finished.then(() => {
+        if (catalogChange || !hash || location.pathname !== path) return
+        document
+          .getElementById(hash.slice(1))
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
+    } catch {
+      // Второй переход ещё не закончился — не держим навигацию.
+      window.clearTimeout(timeout)
+      stop()
+      clearSwitch()
+      resolveNavigation()
+    }
+  })
 })
 
 export default router

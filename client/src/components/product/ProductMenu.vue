@@ -19,6 +19,11 @@ const badge = computed(() => {
   return ''
 })
 const note = computed(() => props.product.description.trim())
+// Имя кадра для перехода сетки. Цифра в начале id в CSS недопустима — поэтому префикс.
+const cardName = computed(() => {
+  const safe = props.product._id.replace(/[^a-zA-Z0-9_-]/g, '')
+  return safe ? `card-${safe}` : undefined
+})
 
 function toggleCart() {
   if (inCart.value) {
@@ -31,7 +36,7 @@ function toggleCart() {
 </script>
 
 <template>
-  <article class="card">
+  <article class="card" :style="cardName ? { viewTransitionName: cardName } : undefined">
     <RouterLink :to="`/product/${props.product.slug}`" class="card-link">
       <div class="card-media">
         <img

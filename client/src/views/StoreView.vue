@@ -51,6 +51,16 @@ const countLabel = computed(
   () => `В наличии ${visibleProducts.value.length} ${plural(visibleProducts.value.length)}`,
 )
 
+// В Chrome сетку перекрашивает браузер. Здесь ключ нужен только запасному затуханию.
+const catalogMotion =
+  typeof document !== 'undefined' &&
+  typeof document.startViewTransition === 'function' &&
+  !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+const catalogKey = computed(() =>
+  catalogMotion ? 'stable' : `${activeCategory.value ?? ''}|${searchText.value}`,
+)
+
 function plural(n: number) {
   const m10 = n % 10
   const m100 = n % 100
@@ -114,7 +124,7 @@ onUnmounted(stopAutoplay)
           Броши, кружки и фигурки, которые я леплю, расписываю и обжигаю сама. Каждая вещь
           существует в единственном варианте — двух одинаковых не бывает.
         </p>
-        <RouterLink to="/about" class="text-link">Подробнее о мастере →</RouterLink>
+        <RouterLink to="/about" class="text-link">Подробнее обо мне →</RouterLink>
       </div>
 
       <div
@@ -201,31 +211,43 @@ onUnmounted(stopAutoplay)
         <Categories :categories="categoryTabs" />
       </div>
 
-      <div v-if="visibleProducts.length" class="grid">
-        <ProductMenu v-for="product in visibleProducts" :key="product._id" :product="product" />
-      </div>
-      <p v-else-if="loaded" class="muted empty">Ничего не нашлось</p>
+      <div class="catalog-motion">
+        <Transition :css="!catalogMotion" name="catalog">
+          <div :key="catalogKey" class="catalog-stage">
+            <div v-if="visibleProducts.length" class="grid">
+              <ProductMenu
+                v-for="product in visibleProducts"
+                :key="product._id"
+                :product="product"
+              />
+            </div>
+            <p v-else-if="loaded" class="muted empty">Ничего не нашлось</p>
 
-      <div id="delivery" class="delivery-strip">
-        <div class="delivery-text">
-          <svg
-            width="28"
-            height="28"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#A2412E"
-            stroke-width="1.6"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M3 7h11v9H3z" />
-            <path d="M14 10h4l3 3v3h-7" />
-            <circle cx="7" cy="17.5" r="1.5" />
-            <circle cx="17" cy="17.5" r="1.5" />
-          </svg>
-          <div>Доставка по России · каждое изделие бережно упаковано, чтобы доехало целым</div>
-        </div>
-        <RouterLink to="/cart" class="text-link small">Доставка и оплата →</RouterLink>
+            <div id="delivery" class="delivery-strip">
+              <div class="delivery-text">
+                <svg
+                  width="28"
+                  height="28"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#A2412E"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M3 7h11v9H3z" />
+                  <path d="M14 10h4l3 3v3h-7" />
+                  <circle cx="7" cy="17.5" r="1.5" />
+                  <circle cx="17" cy="17.5" r="1.5" />
+                </svg>
+                <div>
+                  Доставка по России · каждое изделие бережно упаковано, чтобы доехало целым
+                </div>
+              </div>
+              <RouterLink to="/terms" class="text-link small">Доставка и оплата →</RouterLink>
+            </div>
+          </div>
+        </Transition>
       </div>
     </section>
   </div>
@@ -441,6 +463,27 @@ h2 {
   padding: 24px 0 8px;
 }
 
+.catalog-motion {
+  position: relative;
+}
+
+.catalog-enter-active,
+.catalog-leave-active {
+  transition: opacity 0.28s ease;
+}
+
+.catalog-leave-active {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.catalog-enter-from,
+.catalog-leave-to {
+  opacity: 0;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(216px, 1fr));
@@ -546,7 +589,9 @@ h2 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .carousel-track {
+  .carousel-track,
+  .catalog-enter-active,
+  .catalog-leave-active {
     transition: none;
   }
 }

@@ -8,6 +8,42 @@ a {
   /* transition: 0.4s; */
 }
 
+/* Смена страницы: старый кадр растворяется в новый, без скачка прокрутки. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.28s;
+  animation-timing-function: ease;
+}
+
+/* Фильтр каталога: шапка остаётся, карточки и блок под ними перетекают. */
+html.catalog-switch .catalog-stage {
+  view-transition-name: catalog-stage;
+}
+
+html.catalog-switch::view-transition-old(root),
+html.catalog-switch::view-transition-new(root) {
+  animation: none;
+}
+
+html.catalog-switch::view-transition-old(catalog-stage),
+html.catalog-switch::view-transition-new(catalog-stage) {
+  animation-duration: 0.28s;
+  animation-timing-function: ease;
+}
+
+/* На смене страницы карточки не уезжают отдельно от всего кадра. */
+html.page-switch .card,
+html.page-switch .catalog-stage {
+  view-transition-name: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
 @media (hover: hover) {
   a:hover {
   }

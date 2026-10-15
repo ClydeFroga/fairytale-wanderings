@@ -3,7 +3,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { startPostgres } from "./postgres";
-import { runMigrations } from "./migrate";
+import { runMigrations } from "@global/database/migrate";
 
 // Не использовать dev DATABASE_URL из .env — тесты поднимают свой инстанс.
 delete process.env.DATABASE_URL;

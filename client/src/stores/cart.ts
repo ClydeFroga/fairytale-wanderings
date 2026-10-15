@@ -44,6 +44,8 @@ export const useCartStore = defineStore('cart', () => {
   const name = ref('')
   const phone = ref('')
   const email = ref('')
+  // Согласие с офертой и обработкой данных — отдельная галочка, не «нажатием кнопки».
+  const acceptedTerms = ref(false)
   const showValidationErrors = ref(false)
   const orderError = ref('')
   const insufficientProductIds = ref<Set<string>>(new Set())
@@ -68,7 +70,12 @@ export const useCartStore = defineStore('cart', () => {
     () => email.value.trim() === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()),
   )
   const isOrderFormValid = computed(
-    () => isDeliveryValid.value && isNameValid.value && isPhoneValid.value && isEmailValid.value,
+    () =>
+      isDeliveryValid.value &&
+      isNameValid.value &&
+      isPhoneValid.value &&
+      isEmailValid.value &&
+      acceptedTerms.value,
   )
 
   const totalQuantity = computed(() => items.value.reduce((acc, { quantity }) => acc + quantity, 0))
@@ -166,6 +173,11 @@ export const useCartStore = defineStore('cart', () => {
     clearError(product._id)
   }
 
+  function removeItem(product: IProduct) {
+    if (!entriesById.value.delete(product._id)) return
+    clearError(product._id)
+  }
+
   // Перечитывает товары корзины с сервера (остаток, вес, габариты могли
   // измениться) и обновляет их в entriesById, не трогая состав/количество.
   async function refreshCartProducts() {
@@ -212,6 +224,7 @@ export const useCartStore = defineStore('cart', () => {
     name.value = ''
     phone.value = ''
     email.value = ''
+    acceptedTerms.value = false
     showValidationErrors.value = false
     orderError.value = ''
     insufficientProductIds.value = new Set()
@@ -221,6 +234,7 @@ export const useCartStore = defineStore('cart', () => {
     items,
     addProduct,
     removeProduct,
+    removeItem,
     totalQuantity,
     totalPrice,
     deliveryPrice,
@@ -235,6 +249,7 @@ export const useCartStore = defineStore('cart', () => {
     name,
     phone,
     email,
+    acceptedTerms,
     showValidationErrors,
     isAddressValid,
     isDeliveryValid,

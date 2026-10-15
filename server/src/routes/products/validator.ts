@@ -1,11 +1,7 @@
-import { z } from "zod";
-import { zValidator } from "@hono/zod-validator";
-import {
-  optionalQueryBool,
-  optionalQueryString,
-  optionalQueryUuid,
-} from "@validators/query";
-import { imagesField } from "@validators/form";
+import { z } from 'zod'
+import { zValidator } from '@hono/zod-validator'
+import { optionalQueryBool, optionalQueryString, optionalQueryUuid } from '@validators/query'
+import { imagesField } from '@validators/form'
 
 /** Query GET /products: неизвестные ключи отбрасываются, невалидные значения — undefined. */
 export const productListQuerySchema = z
@@ -14,12 +10,13 @@ export const productListQuerySchema = z
     name: optionalQueryString,
     category: optionalQueryString, // slug категории
     isActive: optionalQueryBool,
+    includeInactive: optionalQueryBool,
   })
-  .strip();
+  .strip()
 
-export type ProductListQuery = z.infer<typeof productListQuerySchema>;
+export type ProductListQuery = z.infer<typeof productListQuerySchema>
 
-export const listProductsValidator = zValidator("query", productListQuerySchema);
+export const listProductsValidator = zValidator('query', productListQuerySchema)
 
 export const updateProductFormSchema = z.object({
   name: z.string().optional(),
@@ -38,17 +35,17 @@ export const updateProductFormSchema = z.object({
   // JSON-массив путей уже сохранённых картинок, которые остаются у товара
   // (в нужном порядке). Не передан — оставляем все текущие.
   existingImages: z.string().optional(),
-});
+})
 
 export const createProductFormSchema = updateProductFormSchema.extend({
   name: z.string(),
   price: z.string(),
   description: z.string(),
   categoryId: z.string(),
-});
+})
 
 /** Поля формы товара после валидации (у создания те же, но заполнены обязательные). */
-export type ProductForm = z.infer<typeof updateProductFormSchema>;
+export type ProductForm = z.infer<typeof updateProductFormSchema>
 
-export const createProductValidator = zValidator("form", createProductFormSchema);
-export const updateProductValidator = zValidator("form", updateProductFormSchema);
+export const createProductValidator = zValidator('form', createProductFormSchema)
+export const updateProductValidator = zValidator('form', updateProductFormSchema)

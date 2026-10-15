@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import Button from '@/components/global/Button.vue'
-import { computed, ref } from 'vue'
+import { computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { Order } from '@/scripts/Order'
@@ -13,16 +12,12 @@ const cartStore = useCartStore()
 const router = useRouter()
 
 // Пока запрос в пути, второй клик создал бы второй заказ — и второй резерв остатка.
-const sending = ref(false)
+const sending = defineModel<boolean>('sending', { default: false })
 const disabled = computed(() => cartStore.totalQuantity === 0 || sending.value)
 
 const DELIVERY_ERRORS = new Set(['CDEK_API_ERROR', 'CDEK_INVALID_TARIFF', 'CDEK_POINT_NOT_FOUND'])
 
 const makeOrder = async () => {
-  if (sending.value || !cartStore.validateOrderForm()) {
-    return
-  }
-
   const order = new Order({
     items: cartStore.items,
     delivery: cartStore.deliveryPayload,
@@ -69,10 +64,31 @@ const makeOrder = async () => {
     cartStore.orderError = 'Не удалось оформить заказ. Попробуйте позже.'
   } finally {
     sending.value = false
+    if (cartStore.orderError) {
+      await nextTick()
+      document
+        .querySelector('.form-status')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
   }
 }
+
+async function submit() {
+  if (sending.value) return
+  if (!cartStore.validateOrderForm()) {
+    await nextTick()
+    document
+      .querySelector('.checkout .has-error')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    return
+  }
+
+  await makeOrder()
+}
+
+defineExpose({ submit })
 </script>
 
 <template>
-  <Button @click="makeOrder" :text="text" :disabled="disabled" />
+  <button type="submit" class="btn-pay" :disabled="disabled">{{ text }}</button>
 </template>

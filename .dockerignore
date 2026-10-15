@@ -27,3 +27,4 @@ Dockerfile
 .dockerignore
 compose.yml
 compose.test.yml
+deploy.sh

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import { useProductsStore, swatch, coverUrl, type CrmProduct } from '@/stores/products'
 
 const products = useProductsStore()
@@ -8,6 +9,74 @@ const emit = defineEmits<{
   edit: [product: CrmProduct]
   delete: [product: CrmProduct]
 }>()
+
+type SortKey = 'name' | 'category' | 'price' | 'stock' | 'status'
+
+const query = ref('')
+const sortKey = ref<SortKey>('name')
+const sortDir = ref<'asc' | 'desc'>('asc')
+
+const sortValue = computed({
+  get: () => `${sortKey.value}:${sortDir.value}`,
+  set: (value: string) => {
+    const [key, dir] = value.split(':')
+    if (
+      key === 'name' ||
+      key === 'category' ||
+      key === 'price' ||
+      key === 'stock' ||
+      key === 'status'
+    ) {
+      sortKey.value = key
+    }
+    sortDir.value = dir === 'desc' ? 'desc' : 'asc'
+  },
+})
+
+function toggleSort(key: SortKey) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+    return
+  }
+  sortKey.value = key
+  sortDir.value = 'asc'
+}
+
+function sortMark(key: SortKey): string {
+  if (sortKey.value !== key) return ''
+  return sortDir.value === 'asc' ? '↑' : '↓'
+}
+
+function compare(a: CrmProduct, b: CrmProduct): number {
+  const dir = sortDir.value === 'asc' ? 1 : -1
+  let result = 0
+  if (sortKey.value === 'name') result = a.name.localeCompare(b.name, 'ru')
+  else if (sortKey.value === 'category') result = a.category.localeCompare(b.category, 'ru')
+  else if (sortKey.value === 'price') result = a.price - b.price
+  else if (sortKey.value === 'stock') result = a.stock - b.stock
+  else result = Number(a.isActive) - Number(b.isActive)
+  if (result === 0) result = a.name.localeCompare(b.name, 'ru')
+  return result * dir
+}
+
+const visible = computed(() => {
+  const words = query.value.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  const list = words.length
+    ? products.catalog.filter((product) => {
+        const haystack = [product.name, product.slug, product.category, product.details]
+          .join(' ')
+          .toLowerCase()
+        return words.every((word) => haystack.includes(word))
+      })
+    : products.catalog.slice()
+  return list.sort(compare)
+})
+
+const listLabel = computed(() => {
+  const total = products.productCountLabel
+  if (!query.value.trim()) return total
+  return `${total} · найдено ${visible.value.length}`
+})
 
 function stockColor(stock: number): string {
   if (stock === 0) return '#b0623f'
@@ -20,9 +89,31 @@ function stockColor(stock: number): string {
   <div class="head">
     <div>
       <h1 class="crm-h1">Товары</h1>
-      <p class="crm-subtitle">{{ products.productCountLabel }}</p>
+      <p class="crm-subtitle">{{ listLabel }}</p>
     </div>
     <button type="button" class="crm-btn" @click="emit('new')">+ Добавить товар</button>
+  </div>
+
+  <div v-if="!products.loading && !products.error && products.catalog.length" class="toolbar">
+    <input
+      v-model="query"
+      type="search"
+      class="crm-input search"
+      placeholder="Поиск по названию, категории или характеристикам"
+      aria-label="Поиск товаров"
+    />
+    <select v-model="sortValue" class="crm-input sort" aria-label="Сортировка товаров">
+      <option value="name:asc">По названию, А → Я</option>
+      <option value="name:desc">По названию, Я → А</option>
+      <option value="category:asc">По категории, А → Я</option>
+      <option value="category:desc">По категории, Я → А</option>
+      <option value="price:asc">Сначала дешевле</option>
+      <option value="price:desc">Сначала дороже</option>
+      <option value="stock:asc">Сначала меньше на складе</option>
+      <option value="stock:desc">Сначала больше на складе</option>
+      <option value="status:asc">Сначала скрытые</option>
+      <option value="status:desc">Сначала активные</option>
+    </select>
   </div>
 
   <div v-if="products.loading" class="state">Загрузка товаров…</div>
@@ -36,15 +127,27 @@ function stockColor(stock: number): string {
 
   <div v-else class="crm-panel">
     <div class="row row-head">
-      <div>Товар</div>
-      <div>Категория</div>
-      <div>Цена</div>
-      <div>Остаток</div>
-      <div>Статус</div>
+      <button type="button" class="sort-btn" @click="toggleSort('name')">
+        Товар <span v-if="sortMark('name')" class="sort-mark">{{ sortMark('name') }}</span>
+      </button>
+      <button type="button" class="sort-btn" @click="toggleSort('category')">
+        Категория
+        <span v-if="sortMark('category')" class="sort-mark">{{ sortMark('category') }}</span>
+      </button>
+      <button type="button" class="sort-btn" @click="toggleSort('price')">
+        Цена <span v-if="sortMark('price')" class="sort-mark">{{ sortMark('price') }}</span>
+      </button>
+      <button type="button" class="sort-btn" @click="toggleSort('stock')">
+        Остаток <span v-if="sortMark('stock')" class="sort-mark">{{ sortMark('stock') }}</span>
+      </button>
+      <button type="button" class="sort-btn" @click="toggleSort('status')">
+        Статус <span v-if="sortMark('status')" class="sort-mark">{{ sortMark('status') }}</span>
+      </button>
       <div></div>
     </div>
     <div v-if="products.catalog.length === 0" class="state">Товаров пока нет.</div>
-    <div v-for="p in products.catalog" :key="p.id" class="row">
+    <div v-else-if="visible.length === 0" class="state">Ничего не найдено.</div>
+    <div v-for="p in visible" :key="p.id" class="row">
       <div class="cell-product">
         <div
           class="swatch"
@@ -104,7 +207,42 @@ function stockColor(stock: number): string {
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.search {
+  flex: 1 1 280px;
+  max-width: 460px;
+}
+.sort {
+  flex: 0 1 280px;
+  width: auto;
+  cursor: pointer;
+  appearance: auto;
+}
+.sort-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+}
+.sort-btn:hover {
+  color: #6b4a2e;
+}
+.sort-mark {
+  letter-spacing: 0;
 }
 .state {
   padding: 40px 20px;
@@ -134,7 +272,10 @@ function stockColor(stock: number): string {
   padding: 13px 20px;
   background: #f1e8d8;
   border-bottom: 1px solid rgba(122, 92, 58, 0.16);
-  font: 500 11px/1 ui-monospace, Menlo, monospace;
+  font:
+    500 11px/1 ui-monospace,
+    Menlo,
+    monospace;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #9a8464;

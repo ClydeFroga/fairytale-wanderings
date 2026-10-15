@@ -61,11 +61,8 @@ const contacts = computed(() => {
         <div class="footer-col">
           <div class="footer-col-title">Магазин</div>
           <a href="/#catalog" @click.prevent="goToSection('catalog')">Каталог</a>
-          <RouterLink to="/about">О мастере</RouterLink>
-          <RouterLink to="/terms#payment">Оплата</RouterLink>
-          <RouterLink to="/terms#delivery">Доставка</RouterLink>
-          <RouterLink to="/terms#returns">Возврат</RouterLink>
-          <RouterLink to="/terms#contacts">Контакты</RouterLink>
+          <RouterLink to="/about">Обо мне</RouterLink>
+          <RouterLink to="/terms">Покупателям</RouterLink>
           <DocumentLink v-if="termsStore.data?.offer" kind="offer">Публичная оферта</DocumentLink>
           <DocumentLink v-if="termsStore.data?.privacy" kind="privacy"
             >Политика конфиденциальности</DocumentLink

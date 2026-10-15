@@ -312,6 +312,24 @@ onUnmounted(() => {
             >
               {{ buyLabel }}
             </button>
+            <div class="ship-note">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#A2412E"
+                stroke-width="1.7"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3 7h11v9H3z" />
+                <path d="M14 10h4l3 3v3h-7" />
+                <circle cx="7" cy="17.5" r="1.5" />
+                <circle cx="17" cy="17.5" r="1.5" />
+              </svg>
+              Отправка через 2–3 дня · бережная упаковка
+            </div>
           </div>
 
           <p v-if="product.description" class="product-desc">{{ product.description }}</p>
@@ -687,6 +705,18 @@ onUnmounted(() => {
   border-radius: 26px;
   font-size: 16px;
   max-width: 420px;
+}
+
+.ship-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.ship-note svg {
+  flex: none;
 }
 
 .product-desc {
