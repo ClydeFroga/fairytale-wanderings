@@ -1,5 +1,15 @@
 # HTTPS-прокси перед приложением (compose.prod.yml). Сертификат Let's Encrypt
 # Caddy получает и продлевает сам; http:// перенаправляется на https://.
+
+# Без HTTP/3: QUIC идёт по UDP, и в РФ его режут провайдеры — Chromium (в том
+# числе WebView Telegram Desktop) переходил на него по Alt-Svc и падал с
+# ERR_QUIC_PROTOCOL_ERROR. HTTP/2 по TCP для магазина ничем не хуже.
+{
+	servers {
+		protocols h1 h2
+	}
+}
+
 {$SITE_DOMAIN} {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:3000

@@ -37,7 +37,7 @@ services:
   caddy:
     image: caddy:2.10-alpine
     restart: unless-stopped
-    # Слушает 80, 443 и 443/udp (HTTP/3) прямо на хосте.
+    # Слушает 80 и 443 прямо на хосте (HTTP/3 выключен — см. Caddyfile).
     network_mode: host
     environment:
       # Домен магазина без https:// — Caddy сам получит на него сертификат.
