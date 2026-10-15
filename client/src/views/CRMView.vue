@@ -183,4 +183,9 @@ async function confirmCancelOrder() {
   min-width: 0;
   padding: 30px 36px 60px;
 }
+@media (max-width: 720px) {
+  .crm-main {
+    padding: 20px 16px 40px;
+  }
+}
 </style>

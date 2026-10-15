@@ -43,7 +43,10 @@ const nav: { key: CrmView; label: string; icon: string }[] = [
 
 <template>
   <aside class="sidebar">
-    <RouterLink to="/" class="brand">Сказка Странствий</RouterLink>
+    <RouterLink to="/" class="brand" title="Сказка Странствий">
+      <span class="brand-mark" aria-hidden="true">С</span>
+      <span class="brand-name">Сказка Странствий</span>
+    </RouterLink>
     <div class="brand-sub">панель управления</div>
 
     <button
@@ -52,13 +55,14 @@ const nav: { key: CrmView; label: string; icon: string }[] = [
       type="button"
       class="nav-item"
       :class="{ active: view === n.key }"
+      :title="n.label"
       @click="emit('select', n.key)"
     >
-      <span class="nav-icon">{{ n.icon }}</span
-      >{{ n.label }}
+      <span class="nav-icon" aria-hidden="true">{{ n.icon }}</span>
+      <span class="nav-label">{{ n.label }}</span>
     </button>
 
-    <div class="user">
+    <div class="user" :title="displayName">
       <div class="avatar">{{ initials }}</div>
       <div class="user-meta">
         <div class="user-name">{{ displayName }}</div>
@@ -93,6 +97,9 @@ const nav: { key: CrmView; label: string; icon: string }[] = [
   display: block;
   border-radius: 8px;
   transition: color 0.15s ease;
+}
+.brand-mark {
+  display: none;
 }
 .brand:hover {
   color: #fce8cc;
@@ -178,5 +185,54 @@ const nav: { key: CrmView; label: string; icon: string }[] = [
 .user-role {
   font-size: 11px;
   color: #a98d68;
+}
+
+@media (max-width: 720px) {
+  .sidebar {
+    width: 68px;
+    padding: 16px 10px;
+    align-items: center;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    font-size: 28px;
+  }
+  .brand-mark {
+    display: block;
+  }
+  .brand-name,
+  .nav-label,
+  .user-meta {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .brand-sub {
+    display: none;
+  }
+  .nav-item {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+  }
+  .user {
+    width: 100%;
+    justify-content: center;
+    gap: 0;
+    padding: 12px 0 4px;
+  }
 }
 </style>

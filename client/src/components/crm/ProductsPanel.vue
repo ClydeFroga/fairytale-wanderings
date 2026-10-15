@@ -169,25 +169,23 @@ function stockColor(stock: number): string {
           <div class="product-details">{{ p.details }}</div>
         </div>
       </div>
-      <div class="cell-meta">
-        <div class="cell-category">
-          <span class="cell-kicker">Категория</span>
-          {{ p.category }}
-        </div>
-        <div class="cell-price">
-          <span class="cell-kicker">Цена</span>
-          {{ p.price.toLocaleString('ru-RU') }} ₽
-        </div>
-        <div class="cell-stock" :style="{ color: stockColor(p.stock) }">
-          <span class="cell-kicker">Остаток</span>
-          {{ p.stock }} шт.
-        </div>
-        <div class="cell-status">
-          <span class="cell-kicker">Статус</span>
-          <span class="badge" :class="p.isActive ? 'badge-active' : 'badge-hidden'">
-            {{ p.isActive ? 'активен' : 'скрыт' }}
-          </span>
-        </div>
+      <div class="cell-category">
+        <span class="cell-kicker">Категория</span>
+        {{ p.category }}
+      </div>
+      <div class="cell-price">
+        <span class="cell-kicker">Цена</span>
+        {{ p.price.toLocaleString('ru-RU') }} ₽
+      </div>
+      <div class="cell-stock" :style="{ color: stockColor(p.stock) }">
+        <span class="cell-kicker">Остаток</span>
+        {{ p.stock }} шт.
+      </div>
+      <div class="cell-status">
+        <span class="cell-kicker">Статус</span>
+        <span class="badge" :class="p.isActive ? 'badge-active' : 'badge-hidden'">
+          {{ p.isActive ? 'активен' : 'скрыт' }}
+        </span>
       </div>
       <div class="cell-actions">
         <button
@@ -271,7 +269,10 @@ function stockColor(stock: number): string {
 }
 .row {
   display: grid;
-  grid-template-columns: 2.4fr 1.1fr 0.9fr 0.9fr 0.9fr 96px;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(
+      0,
+      0.9fr
+    ) 96px;
   gap: 14px;
   padding: 14px 20px;
   align-items: center;
@@ -384,17 +385,10 @@ function stockColor(stock: number): string {
 .cell-kicker {
   display: none;
 }
-/* На широком экране поля остаются колонками общей таблицы. */
-.cell-meta {
-  display: contents;
-}
 
-/* Узкая панель: шесть колонок уже не помещаются и наезжают друг на друга. */
-.products-table {
-  container-type: inline-size;
-  container-name: products;
-}
-@container products (max-width: 680px) {
+/* Окно Телеграма часто уже экрана, но container query там считает ширину
+   по содержимому таблицы и не переключает макет. Ориентируемся на viewport. */
+@media (max-width: 1200px) {
   .row-head {
     display: none;
   }
@@ -402,8 +396,9 @@ function stockColor(stock: number): string {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       'product actions'
-      'meta meta';
-    gap: 12px;
+      'category price'
+      'stock status';
+    gap: 10px 16px;
     padding: 14px 14px 16px;
     align-items: start;
   }
@@ -413,17 +408,27 @@ function stockColor(stock: number): string {
   .cell-actions {
     grid-area: actions;
   }
-  .cell-meta {
-    display: grid;
-    grid-area: meta;
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-    gap: 10px 16px;
+  .cell-category {
+    grid-area: category;
+  }
+  .cell-price {
+    grid-area: price;
+  }
+  .cell-stock {
+    grid-area: stock;
+  }
+  .cell-status {
+    grid-area: status;
   }
   .cell-category,
   .cell-price,
   .cell-stock,
   .cell-status {
     min-width: 0;
+  }
+  .product-name,
+  .product-details {
+    white-space: normal;
   }
   .cell-kicker {
     display: block;

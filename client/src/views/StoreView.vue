@@ -164,7 +164,6 @@ onUnmounted(stopAutoplay)
             </svg>
           </button>
           <div class="carousel-meta">
-            <div class="carousel-caption">{{ slides[slide]?.name }}</div>
             <div class="dots">
               <button
                 v-for="(item, index) in slides"
@@ -365,16 +364,8 @@ h1 {
 
 .carousel-meta {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 10px;
   min-width: 0;
-}
-
-.carousel-caption {
-  font-family: var(--serif);
-  font-size: 18px;
-  text-align: center;
 }
 
 .dots {
