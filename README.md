@@ -216,6 +216,8 @@ cd fairytale-wanderings
   обязательно `PUBLIC_SITE_URL`, `WEBAPP_URL`, `CORS_ORIGINS` = `https://<домен>`,
   отдельный `ADMIN_JWT_SECRET`, а `ADMIN_AUTH_DISABLED` не задавать вовсе.
   Пароль БД — без спецсимволов (он же стоит в `DATABASE_URL`): `openssl rand -hex 24`.
+  Приложение в проде работает в сети хоста, поэтому хост базы — `127.0.0.1`, а не
+  `postgres`: `DATABASE_URL=postgres://fairytale:<пароль>@127.0.0.1:5432/fairytale`.
 
 ```bash
 ./deploy.sh

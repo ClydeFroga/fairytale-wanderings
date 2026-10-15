@@ -1,7 +1,11 @@
 # Прод-надстройка над compose.yml. На сервере подключается из корневого .env:
 #   COMPOSE_FILE=compose.yml:compose.prod.yml
 # Отличия от dev: наружу смотрит только Caddy (80/443, HTTPS), приложение и база
-# доступны лишь внутри docker-сети, логи контейнеров ограничены по размеру.
+# слушают только 127.0.0.1, логи контейнеров ограничены по размеру.
+#
+# app и caddy — в сети хоста (network_mode: host), а не в docker-мосте: на сервере
+# в РФ Let's Encrypt (за Cloudflare) по IPv4 не отвечает, а по IPv6 доступен. У
+# контейнеров в мосте есть только IPv4, в сети хоста они ходят наружу как сам сервер.
 
 # Логи docker по умолчанию растут без предела — на 10-гигабайтном диске это
 # вопрос времени. 3 файла по 10 МБ на контейнер.
@@ -13,22 +17,28 @@ x-logging: &logging
 
 services:
   app:
-    # Порт 3000 наружу не публикуем: снаружи сайт доступен только через Caddy.
+    network_mode: host
+    networks: !reset null
     ports: !reset []
+    environment:
+      # Только локальный интерфейс: снаружи к приложению ходят через Caddy.
+      HOST: 127.0.0.1
+      # База для приложения — на 127.0.0.1:5432 (порт postgres ниже), поэтому в
+      # .env.production DATABASE_URL=postgres://...@127.0.0.1:5432/...
     logging: *logging
 
   postgres:
-    # Docker публикует порты в обход ufw, поэтому базу просто не выставляем наружу.
-    ports: !reset []
+    # Остаётся в docker-мосте; порт публикуется только на 127.0.0.1 — для приложения
+    # в сети хоста. Снаружи база не видна (Docker публикует порты в обход ufw).
+    ports: !override
+      - '127.0.0.1:5432:5432'
     logging: *logging
 
   caddy:
     image: caddy:2.10-alpine
     restart: unless-stopped
-    ports:
-      - '80:80'
-      - '443:443'
-      - '443:443/udp' # HTTP/3
+    # Слушает 80, 443 и 443/udp (HTTP/3) прямо на хосте.
+    network_mode: host
     environment:
       # Домен магазина без https:// — Caddy сам получит на него сертификат.
       SITE_DOMAIN: ${SITE_DOMAIN:?SITE_DOMAIN не задан в .env}
@@ -40,8 +50,6 @@ services:
       - caddy_config:/config
     depends_on:
       - app
-    networks:
-      - app-network
     logging: *logging
 
 volumes:

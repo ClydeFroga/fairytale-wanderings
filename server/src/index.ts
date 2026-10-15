@@ -43,5 +43,8 @@ app.use('/*', serveClientIndex)
 
 export default {
   port: process.env.PORT || 3000,
+  // В проде приложение живёт в сети хоста (compose.prod.yml) и слушает только
+  // 127.0.0.1 — снаружи к нему ходят через Caddy. По умолчанию — все интерфейсы.
+  hostname: process.env.HOST || '0.0.0.0',
   fetch: app.fetch,
 }

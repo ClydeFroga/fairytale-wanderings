@@ -2,7 +2,7 @@
 # Caddy получает и продлевает сам; http:// перенаправляется на https://.
 {$SITE_DOMAIN} {
 	encode zstd gzip
-	reverse_proxy app:3000
+	reverse_proxy 127.0.0.1:3000
 }
 
 # Один адрес магазина: canonical, sitemap, Робокасса и Mini App смотрят на домен без www.
