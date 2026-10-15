@@ -1,0 +1,49 @@
+# Прод-надстройка над compose.yml. На сервере подключается из корневого .env:
+#   COMPOSE_FILE=compose.yml:compose.prod.yml
+# Отличия от dev: наружу смотрит только Caddy (80/443, HTTPS), приложение и база
+# доступны лишь внутри docker-сети, логи контейнеров ограничены по размеру.
+
+# Логи docker по умолчанию растут без предела — на 10-гигабайтном диске это
+# вопрос времени. 3 файла по 10 МБ на контейнер.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  app:
+    # Порт 3000 наружу не публикуем: снаружи сайт доступен только через Caddy.
+    ports: !reset []
+    logging: *logging
+
+  postgres:
+    # Docker публикует порты в обход ufw, поэтому базу просто не выставляем наружу.
+    ports: !reset []
+    logging: *logging
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp' # HTTP/3
+    environment:
+      # Домен магазина без https:// — Caddy сам получит на него сертификат.
+      SITE_DOMAIN: ${SITE_DOMAIN:?SITE_DOMAIN не задан в .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Сертификаты: без тома Caddy запрашивал бы их на каждом рестарте и упёрся
+      # бы в лимиты Let's Encrypt.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    networks:
+      - app-network
+    logging: *logging
+
+volumes:
+  caddy_data:
+  caddy_config:

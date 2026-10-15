@@ -1,0 +1,11 @@
+# HTTPS-прокси перед приложением (compose.prod.yml). Сертификат Let's Encrypt
+# Caddy получает и продлевает сам; http:// перенаправляется на https://.
+{$SITE_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3000
+}
+
+# Один адрес магазина: canonical, sitemap, Робокасса и Mini App смотрят на домен без www.
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}

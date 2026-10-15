@@ -45,3 +45,6 @@ compose.test.yml
 
 # Загруженные картинки товаров (UPLOAD_PATH)
 server/images/
+
+# Бэкапы на сервере (backup.sh)
+backups/

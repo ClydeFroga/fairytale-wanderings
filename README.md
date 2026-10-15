@@ -189,14 +189,60 @@ VITE_API_URL=https://shop.example.com docker compose build
 
 ### Деплой на сервере
 
+Прод = `compose.yml` + `compose.prod.yml`: наружу смотрит только Caddy (80/443),
+он сам получает сертификат Let's Encrypt и проксирует на приложение; порты
+приложения и Postgres закрыты, логи контейнеров ограничены по размеру.
+
+**Первый запуск** (Ubuntu с Docker, DNS-записи `@` и `www` уже указывают на IP сервера):
+
 ```bash
-git pull && ./deploy.sh
+git clone https://github.com/ClydeFroga/fairytale-wanderings.git
+cd fairytale-wanderings
 ```
+
+Два env-файла в корне — оба в `.gitignore`:
+
+- `.env` — для самого docker compose:
+
+  ```env
+  NODE_ENV=production
+  COMPOSE_FILE=compose.yml:compose.prod.yml
+  SITE_DOMAIN=example.ru
+  VITE_API_URL=https://example.ru
+  ```
+
+- `.env.production` — для приложения и Postgres: шаблон `.env.example`. В проде
+  обязательно `PUBLIC_SITE_URL`, `WEBAPP_URL`, `CORS_ORIGINS` = `https://<домен>`,
+  отдельный `ADMIN_JWT_SECRET`, а `ADMIN_AUTH_DISABLED` не задавать вовсе.
+  Пароль БД — без спецсимволов (он же стоит в `DATABASE_URL`): `openssl rand -hex 24`.
+
+```bash
+./deploy.sh
+```
+
+**Обновление:** `git pull && ./deploy.sh`.
 
 Скрипт пересобирает образ, перезапускает контейнеры и чистит то, что сборка
 оставила на диске (прежний образ без тега и кэш слоёв), — на маленьком диске
 иначе каждые несколько обновлений съедают гигабайты. Чистка общая для всего
 Docker на машине, поэтому на рабочем компьютере скрипт не запускать.
+
+**Бэкапы:** `./backup.sh` кладёт дамп базы и архив загруженных файлов в
+`backups/` и удаляет копии старше 7 дней. Ежедневно в 4:00 — через `crontab -e`:
+
+```cron
+0 4 * * * cd /root/fairytale-wanderings && ./backup.sh >> backups/backup.log 2>&1
+```
+
+Копии на том же диске не спасут при потере сервера — периодически забирать их к
+себе: `scp -r root@<ip>:fairytale-wanderings/backups ./`.
+
+Восстановление:
+
+```bash
+gunzip -c backups/db-<дата>.sql.gz | docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+docker compose exec -T app tar xzf - -C /app/uploads < backups/uploads-<дата>.tar.gz
+```
 
 ---
 
