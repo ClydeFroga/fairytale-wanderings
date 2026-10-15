@@ -65,10 +65,7 @@ export const useCartStore = defineStore('cart', () => {
   })
   const isNameValid = computed(() => name.value.trim().length > 0)
   const isPhoneValid = computed(() => /^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$/.test(phone.value))
-  // Почта необязательна (телефон уже есть), но заполненную проверяем на формат.
-  const isEmailValid = computed(
-    () => email.value.trim() === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()),
-  )
+  const isEmailValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()))
   const isOrderFormValid = computed(
     () =>
       isDeliveryValid.value &&

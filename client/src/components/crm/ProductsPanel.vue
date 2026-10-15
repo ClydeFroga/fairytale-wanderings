@@ -125,7 +125,7 @@ function stockColor(stock: number): string {
     </button>
   </div>
 
-  <div v-else class="crm-panel">
+  <div v-else class="crm-panel products-table">
     <div class="row row-head">
       <button type="button" class="sort-btn" @click="toggleSort('name')">
         Товар <span v-if="sortMark('name')" class="sort-mark">{{ sortMark('name') }}</span>
@@ -169,13 +169,25 @@ function stockColor(stock: number): string {
           <div class="product-details">{{ p.details }}</div>
         </div>
       </div>
-      <div class="cell-category">{{ p.category }}</div>
-      <div class="cell-price">{{ p.price.toLocaleString('ru-RU') }} ₽</div>
-      <div class="cell-stock" :style="{ color: stockColor(p.stock) }">{{ p.stock }} шт.</div>
-      <div>
-        <span class="badge" :class="p.isActive ? 'badge-active' : 'badge-hidden'">
-          {{ p.isActive ? 'активен' : 'скрыт' }}
-        </span>
+      <div class="cell-meta">
+        <div class="cell-category">
+          <span class="cell-kicker">Категория</span>
+          {{ p.category }}
+        </div>
+        <div class="cell-price">
+          <span class="cell-kicker">Цена</span>
+          {{ p.price.toLocaleString('ru-RU') }} ₽
+        </div>
+        <div class="cell-stock" :style="{ color: stockColor(p.stock) }">
+          <span class="cell-kicker">Остаток</span>
+          {{ p.stock }} шт.
+        </div>
+        <div class="cell-status">
+          <span class="cell-kicker">Статус</span>
+          <span class="badge" :class="p.isActive ? 'badge-active' : 'badge-hidden'">
+            {{ p.isActive ? 'активен' : 'скрыт' }}
+          </span>
+        </div>
       </div>
       <div class="cell-actions">
         <button
@@ -324,6 +336,9 @@ function stockColor(stock: number): string {
   font-family: ui-monospace, Menlo, monospace;
   font-size: 11px;
   color: #a08a6a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .product-details {
   font-size: 12px;
@@ -365,5 +380,61 @@ function stockColor(stock: number): string {
   display: flex;
   gap: 6px;
   justify-content: flex-end;
+}
+.cell-kicker {
+  display: none;
+}
+/* На широком экране поля остаются колонками общей таблицы. */
+.cell-meta {
+  display: contents;
+}
+
+/* Узкая панель: шесть колонок уже не помещаются и наезжают друг на друга. */
+.products-table {
+  container-type: inline-size;
+  container-name: products;
+}
+@container products (max-width: 680px) {
+  .row-head {
+    display: none;
+  }
+  .row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'product actions'
+      'meta meta';
+    gap: 12px;
+    padding: 14px 14px 16px;
+    align-items: start;
+  }
+  .cell-product {
+    grid-area: product;
+  }
+  .cell-actions {
+    grid-area: actions;
+  }
+  .cell-meta {
+    display: grid;
+    grid-area: meta;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: 10px 16px;
+  }
+  .cell-category,
+  .cell-price,
+  .cell-stock,
+  .cell-status {
+    min-width: 0;
+  }
+  .cell-kicker {
+    display: block;
+    margin-bottom: 3px;
+    font:
+      500 10px/1.2 ui-monospace,
+      Menlo,
+      monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #9a8464;
+  }
 }
 </style>

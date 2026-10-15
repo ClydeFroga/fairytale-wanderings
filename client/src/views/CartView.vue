@@ -288,13 +288,12 @@ onMounted(async () => {
               <FormField
                 v-model="cartStore.email"
                 label="Почта"
-                optional
                 placeholder="you@example.com"
                 type="email"
                 inputmode="email"
                 autocomplete="email"
                 hint="Для уведомлений на почту"
-                error="Проверьте адрес почты"
+                error="Укажите корректный адрес почты"
                 :has-error="cartStore.showValidationErrors && !cartStore.isEmailValid"
               />
             </div>
